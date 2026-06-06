@@ -1,0 +1,519 @@
+<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Output Contract V2.9</title><style>
+    :root { --bg:#0b1020; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --line:#334155; --accent:#38bdf8; --accent2:#a78bfa; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',Arial,sans-serif; line-height:1.72; }
+    .container { max-width:1180px; margin:0 auto; padding:32px 28px 80px; }
+    h1,h2,h3,h4 { color:#fff; line-height:1.25; }
+    h1 { font-size:2.1rem; border-bottom:1px solid var(--line); padding-bottom:16px; }
+    h2 { margin-top:48px; padding-top:20px; border-top:1px solid #1f2937; color:#e0f2fe; }
+    h3 { color:#bfdbfe; margin-top:32px; }
+    p { color:#e5e7eb; }
+    a { color:var(--accent); }
+    code { background:#0f172a; border:1px solid #1e293b; color:#7dd3fc; padding:2px 5px; border-radius:5px; }
+    pre { background:#050816; border:1px solid #1e293b; border-radius:10px; padding:16px; overflow:auto; }
+    pre code { border:none; padding:0; background:transparent; color:#dbeafe; }
+    blockquote { border-left:4px solid var(--accent2); margin:24px 0; padding:10px 18px; background:#111827; color:#d1d5db; }
+    table { border-collapse:collapse; width:100%; margin:18px 0 28px; font-size:0.92rem; display:block; overflow-x:auto; }
+    th,td { border:1px solid #334155; padding:9px 10px; vertical-align:top; }
+    th { background:#1e293b; color:#f8fafc; position:sticky; top:0; }
+    tr:nth-child(even) td { background:#0f172a; }
+    tr:nth-child(odd) td { background:#111827; }
+    .container > ul, .container > ol { color:#e5e7eb; }
+    strong { color:#f8fafc; }
+    hr { border:0; border-top:1px solid #1f2937; margin:36px 0; }
+    </style></head><body><main class='container'><h1>Output Contract：六状态清算—吸收市场状态引擎的输出说明</h1>
+<blockquote>
+<p>版本：V2.9 Reader-friendly Output Contract<br />
+适用范围：<code>state_timeseries.csv</code>、<code>segment_diagnostics.csv</code>、Dashboard 以及策略接入所需的关键输出字段。<br />
+核心原则：本模型输出的是市场机制底盘，不是单一买卖信号。</p>
+</blockquote>
+<hr />
+<h2>1. 这份文档解决什么问题</h2>
+<p><strong>Output Contract（输出契约）</strong> 是本项目对模型结果的正式解释。它说明模型会输出哪些文件、每个字段代表什么金融语义、字段之间如何组合、策略系统如何读取，以及哪些误用必须避免。</p>
+<p>这很重要，因为本项目输出不是一个普通分类结果。它是一个多层状态推理系统的最终产物：先有六状态 belief vector，再经过 production stability 得到 <code>stable_state</code>，然后进一步输出方向解释、交易触发质量、状态内价格合规、退出风险和段级审计结果。</p>
+<p>因此，输出契约的目的不是简单列字段，而是帮助读者理解：</p>
+<pre><code class="language-text">哪些字段解释市场结构；
+哪些字段解释交易方向；
+哪些字段判断交易触发质量；
+哪些字段提示状态失效与风控；
+哪些字段用于回测审查和人工复盘。
+</code></pre>
+<p>最重要的一点：<strong>模型输出不是直接交易信号</strong>。<code>stable_state</code> 不等于买卖指令，<code>trade_direction</code> 不等于必须交易，<code>price_expectation_exit_flag</code> 也不是机械平仓命令。策略系统应组合多个字段进行判断。</p>
+<hr />
+<h2>2. 模型输出总览</h2>
+<p>当前主要输出包括：</p>
+<table>
+<thead>
+<tr>
+  <th>输出</th>
+  <th>用途</th>
+  <th>适合使用者</th>
+  <th>主要用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>state_timeseries.csv</code></td>
+  <td>逐时点状态输出</td>
+  <td>策略系统、研究员、风控</td>
+  <td>live/回测中读取状态、belief、方向、质量、退出信号</td>
+</tr>
+<tr>
+  <td><code>segment_diagnostics.csv</code></td>
+  <td>连续状态段审计</td>
+  <td>研究员、模型审查人员</td>
+  <td>检查状态段收益、波动、趋势、质量问题</td>
+</tr>
+<tr>
+  <td>Dashboard / <code>six_state_dashboard.html</code></td>
+  <td>可视化人工审查</td>
+  <td>研究员、交易研究、工程协作者</td>
+  <td>查看价格、状态、belief、PLIE/path/evidence、质量与退出</td>
+</tr>
+<tr>
+  <td><code>segment_quality_flags.csv</code> / <code>low_quality_segment_examples.csv</code></td>
+  <td>低质量段样本</td>
+  <td>模型优化与审计</td>
+  <td>定位弱 HPEM、低质量 VT、RC price drift、ST flat 等问题</td>
+</tr>
+<tr>
+  <td><code>validation_report.*</code></td>
+  <td>运行校验报告</td>
+  <td>工程与研究</td>
+  <td>no-leakage、分布、典型场景、数据质量摘要</td>
+</tr>
+</tbody>
+</table>
+<p>输出层级可理解为：</p>
+<pre><code class="language-text">Raw filtered belief
+→ Production stable state
+→ Directional interpretation
+→ Trading trigger quality
+→ Price expectation compliance
+→ Exit / invalidation signals
+→ Segment diagnostics
+→ Dashboard review
+→ Strategy-facing integration
+</code></pre>
+<hr />
+<h2>3. <code>state_timeseries.csv</code>：逐时点状态输出</h2>
+<h3>文件用途</h3>
+<p><code>state_timeseries.csv</code> 是策略系统最常读取的主输出文件。每一行对应一个 source-clock 推理时点，包含价格、六状态 belief、candidate/stable state、方向解释、交易质量、price expectation、evidence 和质量标记。</p>
+<h3>粒度</h3>
+<p>粒度通常与 <code>base_context.csv</code> 的 source-clock 一致，而不是任意价格 K 线。若上游 PLIE/HMM 约小时级更新，<code>state_timeseries.csv</code> 的状态语义也应按 source-clock 理解。</p>
+<h3>适用场景</h3>
+<ul>
+<li>策略条件输入；</li>
+<li>风控上下文；</li>
+<li>状态切换审查；</li>
+<li>指标分桶与回测；</li>
+<li>Dashboard 可视化。</li>
+</ul>
+<h3>不适用场景</h3>
+<ul>
+<li>不应直接把某个字段当成买卖信号；</li>
+<li>不应把 belief 当收益概率；</li>
+<li>不应用 future response 或 segment 未来收益解释当前行。</li>
+</ul>
+<hr />
+<h2>4. Belief Vector：六状态置信分布</h2>
+<p>市场状态通常不是瞬间从一种机制跳到另一种机制。一个时点可能同时具有趋势、吸收、冲突和波动证据。因此模型首先输出六个状态上的置信分布，也就是 <strong>belief vector</strong>。</p>
+<p>公式上：</p>
+<pre><code class="language-text">b_t = (b_ST, b_VT, b_RC, b_RHA, b_HPEM, b_AMB)
+</code></pre>
+<p>直觉上，它表示当前截至 <code>t</code> 的全部证据分别支持六种市场机制的程度。六个分量应非负且和为 1。</p>
+<h3><code>b_ST ... b_AMB</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 六状态 filtered belief 分量。<br />
+<strong>金融解释：</strong> 表示当前清算压力、path、market response、price context 与 quality evidence 对每个状态的支持程度。<br />
+<strong>常见取值：</strong> 0 到 1，六列和约为 1。<br />
+<strong>策略使用方式：</strong> 用于判断状态置信度、构造状态加权策略、观察过渡期。<br />
+<strong>常见误用：</strong> 把 <code>b_HPEM</code> 当成上涨/下跌概率；它不是收益概率。<br />
+<strong>与其他字段的关系：</strong> <code>candidate_state</code> 通常来自最大 belief；<code>stable_state</code> 还要经过稳定层。</p>
+<h3><code>belief_gap</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 第一高 belief 与第二高 belief 的差距。<br />
+<strong>金融解释：</strong> belief gap 越高，当前主状态与竞争状态的边界越清晰；gap 低说明状态竞争激烈，可能处于过渡或冲突。<br />
+<strong>策略使用方式：</strong> 可作为交易质量过滤条件。低 gap 时降低仓位或 no-trade。<br />
+<strong>常见误用：</strong> 只看 <code>stable_state</code>，忽略低 <code>belief_gap</code> 下状态语义可能不清。<br />
+<strong>与其他字段的关系：</strong> 与 <code>candidate_state</code>、<code>stable_state</code> 不一致时尤其重要。</p>
+<hr />
+<h2>5. Candidate State 与 Stable State</h2>
+<h3><code>candidate_state</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 当前 raw / filtered belief 下最强的候选状态。<br />
+<strong>金融解释：</strong> 更敏感，能更快反映短期证据变化。<br />
+<strong>策略使用方式：</strong> 用于观察潜在状态切换压力，不建议单独作为交易状态。<br />
+<strong>常见误用：</strong> 把 candidate 当最终稳定状态，会重新引入频繁跳变。<br />
+<strong>与其他字段的关系：</strong> 若 <code>candidate_state != stable_state</code>，可能表示状态切换正在形成。</p>
+<h3><code>stable_state</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 经 production stability layer 后得到的稳定市场结构状态。<br />
+<strong>金融解释：</strong> 表示当前市场主导机制，例如 HPEM 是清算压力穿透，RHA 是高吸收/拒绝，VT 是主动趋势。<br />
+<strong>策略使用方式：</strong> 用于策略上下文、风控 regime、信号过滤。<br />
+<strong>常见误用：</strong> 直接写 <code>if stable_state == HPEM: trade()</code>。stable_state 不是买卖信号。<br />
+<strong>与其他字段的关系：</strong> 应与 <code>belief_gap</code>、<code>directional_state</code>、<code>trading_trigger_quality</code>、<code>price_expectation_exit_flag</code> 联合使用。</p>
+<h3><code>state_duration</code> / <code>stable_state_duration</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code><br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 当前 stable_state 已持续的 bar 数或 source-clock steps。<br />
+<strong>金融解释：</strong> 状态持续时间影响切换意义。刚进入的状态可能仍在确认期；持续过久的状态若出现反向证据，应关注退出压力。<br />
+<strong>策略使用方式：</strong> 过滤过短状态、识别 late-stage HPEM/RHA、配合 exit flag。<br />
+<strong>常见误用：</strong> 认为持续越久越安全；有些状态持续久反而可能接近衰竭。</p>
+<h3><code>transition_reason</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> text<br />
+<strong>含义：</strong> 当前切换或保持状态的主要解释。<br />
+<strong>金融解释：</strong> 帮助追踪状态变化是由 cascade、rejection、active dominance、quality conflict、exit pressure 还是 price expectation 触发。<br />
+<strong>策略使用方式：</strong> 用于人工审查、异常定位、策略调参。<br />
+<strong>常见误用：</strong> 把文本 reason 当作规则引擎输出；它是解释信息，不是交易指令。</p>
+<h3><code>top_evidence</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> text/list-like<br />
+<strong>含义：</strong> 当前状态判断最重要的 evidence features。<br />
+<strong>金融解释：</strong> 展示状态背后的证据来源，例如 PLIE pressure、path cascade、rejection、active dominance、quality bad。<br />
+<strong>策略使用方式：</strong> 用于解释状态、构造风控审查、识别单一证据过度主导。<br />
+<strong>常见误用：</strong> 只看 top evidence 中的一个字段交易。</p>
+<hr />
+<h2>6. 六个状态的输出语义</h2>
+<h3>ST — Stable Trend</h3>
+<p><strong>直觉：</strong> 温和、有序、低冲突的趋势。<br />
+<strong>机制：</strong> 压力或主动趋势存在，但不是极端级联，也不是高吸收拒绝。<br />
+<strong>策略语境：</strong> 可作为有序趋势背景，但仍需方向质量与 price expectation。<br />
+<strong>常见误用：</strong> 把 ST 当极端趋势；ST 应是温和趋势，不是 HPEM。</p>
+<h3>VT — Volatile Trend</h3>
+<p><strong>直觉：</strong> 主动交易或外生冲击主导的高波趋势。<br />
+<strong>机制：</strong> PLIE 不是主解释变量，价格由 active dominance 或宏观/情绪/现货流推动。<br />
+<strong>策略语境：</strong> 需要进一步看 <code>VT_UP / VT_DOWN / VT_MIXED</code>。<br />
+<strong>常见误用：</strong> 把所有 VT 当固定方向；VT 可短期换方向。</p>
+<h3>RC — Range-bound / Consolidation</h3>
+<p><strong>直觉：</strong> 低压力、低波动、低趋势、区间压缩或等待状态。<br />
+<strong>机制：</strong> 清算压力不强，主动位移不强，市场解释力较低但不一定冲突。<br />
+<strong>策略语境：</strong> 可作为低交易价值或压缩语境；不等于天然可做区间。<br />
+<strong>常见误用：</strong> 只要 RC 就做区间交易；若 <code>state_price_expectation_issue = RC_PRICE_TOO_LARGE_OR_TRENDING</code>，RC 假设正在失效。</p>
+<h3>RHA — Reversal / High Absorption</h3>
+<p><strong>直觉：</strong> 清算压力仍在，但价格不再服从。<br />
+<strong>机制：</strong> forced flow 被吸收、拒绝，或反向接管。<br />
+<strong>策略语境：</strong> 要区分 <code>RHA_REVERSAL_UP/DOWN</code>、<code>RHA_STALL</code>、<code>RHA_WEAK</code>。<br />
+<strong>常见误用：</strong> 把所有 RHA 当反转交易。RHA_STALL 可能只是吸收，不具备明确方向。</p>
+<h3>HPEM — High Pressure / Extreme Move</h3>
+<p><strong>直觉：</strong> 清算压力穿透市场，价格顺压力方向级联或极端位移。<br />
+<strong>机制：</strong> directional PLIE + cascade + price impact / jump / high vol。<br />
+<strong>策略语境：</strong> 需要看 <code>HPEM_UP / HPEM_DOWN</code>、directional quality、giveback、price expectation。<br />
+<strong>常见误用：</strong> 把 HPEM 当高波动。高波动但 PLIE 不主导时更可能是 VT。</p>
+<h3>AMB — Ambiguous / No-trade</h3>
+<p><strong>直觉：</strong> 证据冲突、低质量或不适合交易的保护性状态。<br />
+<strong>机制：</strong> path/memory/PLIE/price context 冲突，或数据质量风险。<br />
+<strong>策略语境：</strong> 通常作为 no-trade / 降权 / 风控状态。<br />
+<strong>常见误用：</strong> 把 AMB 当模型失败。AMB 是保护层。</p>
+<hr />
+<h2>7. Directional Output：方向解释层</h2>
+<p><code>stable_state</code> 回答“市场机制是什么”，但交易还需要知道这个机制是否具有可解释方向。因此模型输出 directional layer。</p>
+<h3><code>directional_state</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 带状态语义的方向解释。<br />
+<strong>金融解释：</strong> 例如 <code>HPEM_DOWN</code> 表示 HPEM 的方向为向下，且由 PLIE/价格合规支持；<code>VT_MIXED</code> 表示 VT 内部方向混合。<br />
+<strong>常见取值：</strong> <code>HPEM_UP</code>, <code>HPEM_DOWN</code>, <code>WEAK_HPEM</code>, <code>RHA_REVERSAL_UP</code>, <code>RHA_REVERSAL_DOWN</code>, <code>RHA_STALL</code>, <code>RHA_WEAK</code>, <code>INVALID_RHA_FOLLOWS_PLIE</code>, <code>VT_UP</code>, <code>VT_DOWN</code>, <code>VT_MIXED</code>, <code>RC_NO_TRADE</code>, <code>ST_UP</code>, <code>ST_DOWN</code>, <code>AMB</code> 等。以项目实际输出枚举为准。<br />
+<strong>策略使用方式：</strong> 用于判断状态是否存在方向交易解释。<br />
+<strong>常见误用：</strong> 把 directional_state 当无条件开仓信号。</p>
+<h3><code>trade_direction</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 简化方向枚举。<br />
+<strong>常见取值：</strong> <code>UP</code>, <code>DOWN</code>, <code>MIXED</code>, <code>NO_TRADE</code>。<br />
+<strong>金融解释：</strong> 只表达方向，不表达状态机制。<br />
+<strong>策略使用方式：</strong> 策略可用它决定方向候选，但必须配合 quality 与 exit flag。<br />
+<strong>常见误用：</strong> 看到 <code>UP</code> 就做多；它还需要状态质量与风险过滤。</p>
+<h3><code>direction_confidence</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 方向证据强弱。<br />
+<strong>金融解释：</strong> 越高表示趋势方向、PLIE alignment、path active direction 或 reversal evidence 更清楚。<br />
+<strong>策略使用方式：</strong> 方向过滤；低值时不做方向交易或降低权重。<br />
+<strong>常见误用：</strong> 当成收益概率。</p>
+<h3><code>directional_trading_quality</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 方向交易解释质量。<br />
+<strong>金融解释：</strong> 衡量当前方向状态是否具备足够一致性、价格合规和证据支持。<br />
+<strong>策略使用方式：</strong> 过滤 <code>WEAK_HPEM</code>、<code>RHA_STALL</code>、<code>VT_MIXED</code> 等低质量方向状态。<br />
+<strong>常见误用：</strong> 当作收益承诺。</p>
+<h3><code>directional_no_trade_reason</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> text<br />
+<strong>含义：</strong> 当前方向层不适合交易的原因。<br />
+<strong>金融解释：</strong> 例如方向混合、HPEM giveback、RHA 只是 stall、价格预期失效。<br />
+<strong>策略使用方式：</strong> 用于风控解释与人工审查。</p>
+<hr />
+<h2>8. Trading Trigger Quality：状态是否适合交易触发</h2>
+<p>状态成立不等于交易触发成立。模型可能识别到 RHA 语境，但价格尚未形成反向接管；也可能识别到 HPEM 压力，但价格穿透不足。因此需要交易触发质量层。</p>
+<h3><code>state_confirmation_score</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 当前状态进入以来，已发生价格行为与该状态定义的匹配程度。<br />
+<strong>金融解释：</strong> HPEM 需要穿透，RC 需要低波压缩，VT 需要有效位移，ST 需要温和趋势。<br />
+<strong>策略使用方式：</strong> 作为状态确认过滤。<br />
+<strong>常见误用：</strong> 认为高 score 等于收益更高；它只表示状态语义更合规。</p>
+<h3><code>state_confirmation_status</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code><br />
+<strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 状态确认状态。<br />
+<strong>常见取值：</strong> <code>confirmed</code>, <code>pending</code>, <code>weak</code>, <code>unconfirmed</code> 等，以实际输出为准。<br />
+<strong>金融解释：</strong> pending/weak 表示市场结构可能存在，但交易解释还不充分。</p>
+<h3><code>trading_trigger_quality</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 当前 stable_state 是否适合作为交易触发上下文。<br />
+<strong>金融解释：</strong> 结合状态确认、方向质量、价格行为和证据质量。<br />
+<strong>策略使用方式：</strong> 推荐作为交易信号过滤的核心字段之一。<br />
+<strong>常见误用：</strong> 把它当成胜率或收益预期。</p>
+<h3><code>weak_state_flag</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code><br />
+<strong>字段类型：</strong> boolean / 0-1<br />
+<strong>含义：</strong> 当前状态语义存在，但交易质量不足。<br />
+<strong>金融解释：</strong> 例如 weak HPEM：清算压力存在，但价格穿透不足。<br />
+<strong>策略使用方式：</strong> 降权、观察、风控，不建议作为主动开仓触发。</p>
+<hr />
+<h2>9. Price Expectation Compliance：状态价格行为是否仍然合规</h2>
+<p>状态进入后，价格行为必须继续符合状态定义。V2.5 引入 price expectation compliance，用于检查状态内价格生命周期。</p>
+<h3><code>state_price_expectation_score</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 当前状态段内价格行为是否符合该状态的价格预期。<br />
+<strong>金融解释：</strong> HPEM 应顺 PLIE 方向穿透；RC 应价格变化小；VT 应有较大位移；ST 应温和有序；RHA 应表现为反 PLIE 接管或吸收。<br />
+<strong>策略使用方式：</strong> 低分时降低交易权重或观察状态失效。<br />
+<strong>常见误用：</strong> 当成未来收益评分；它只评价已发生的状态内行为。</p>
+<h3><code>state_price_expectation_issue</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical/text<br />
+<strong>含义：</strong> 价格预期不合规的具体类型。<br />
+<strong>常见取值：</strong> <code>OK</code>, <code>HPEM_PRICE_EXPECTATION_FAIL</code>, <code>RHA_INVALID_FOLLOWS_PLIE</code>, <code>RHA_WEAK_NO_REVERSAL</code>, <code>RC_PRICE_TOO_LARGE_OR_TRENDING</code>, <code>VT_LOW_MOVE</code>, <code>VT_MIXED_DIRECTION</code>, <code>ST_FLAT</code>, <code>ST_WEAK_TREND</code>, <code>ST_TOO_EXTREME</code> 等，以实际输出为准。<br />
+<strong>策略使用方式：</strong> 用于 no-trade、减仓、退出、人工审查。</p>
+<h3><code>price_expectation_exit_flag</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> boolean / 0-1<br />
+<strong>含义：</strong> 当前 stable_state 的价格行为出现失效或风险上升。<br />
+<strong>金融解释：</strong> 它提示当前状态的交易含义可能不再成立，例如 HPEM giveback、RHA 重新服从 PLIE、RC 出现趋势漂移。<br />
+<strong>策略使用方式：</strong> 用于减仓、退出、降低权重、观察下一状态。<br />
+<strong>常见误用：</strong> 当作机械平仓指令。它是风险提示，不是单一执行命令。<br />
+<strong>与其他字段的关系：</strong> 应与 <code>price_expectation_exit_target</code>、<code>exit_reason</code>、belief 和 directional quality 一起看。</p>
+<h3><code>price_expectation_exit_target</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> categorical/text<br />
+<strong>含义：</strong> 当前状态失效后更可能转向的候选状态。<br />
+<strong>金融解释：</strong> 例如 HPEM decay 后若 rejection/absorption 高，exit target 可能为 RHA；RC price drift 后若 active/trend 高，target 可能为 VT。<br />
+<strong>策略使用方式：</strong> 作为观察下一状态或调整风险的参考。<br />
+<strong>常见误用：</strong> 当成下一状态必然发生。</p>
+<h3><code>price_expectation_exit_reason</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> text<br />
+<strong>含义：</strong> exit flag 的具体原因。<br />
+<strong>策略使用方式：</strong> 用于人工复盘和风控解释。</p>
+<h3><code>price_expectation_trading_quality</code></h3>
+<p><strong>所在文件：</strong> <code>state_timeseries.csv</code> / Dashboard<br />
+<strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 价格预期层面对交易质量的评估。<br />
+<strong>金融解释：</strong> 即使 stable_state 成立，若价格行为不再合规，该质量应下降。<br />
+<strong>策略使用方式：</strong> 与 <code>trading_trigger_quality</code> 共同过滤。</p>
+<hr />
+<h2>10. Exit / Invalidation Signals：状态失效与风控输出</h2>
+<p>exit / invalidation signals 的目的不是替代稳定层，而是告诉策略：当前稳定状态的金融假设是否正在被价格行为或证据结构证伪。</p>
+<p>常见使用方式：</p>
+<pre><code class="language-text">price_expectation_exit_flag == 1:
+    观察当前状态失效；
+    降低原方向交易权重；
+    根据 exit_target 审查下一状态；
+    不机械执行，需结合策略规则。
+</code></pre>
+<p>示例：</p>
+<pre><code class="language-text">stable_state = HPEM
+price_expectation_exit_flag = 1
+price_expectation_exit_reason = HPEM aligned MFE gave back beyond threshold
+</code></pre>
+<p>这表示清算压力穿透的交易含义正在衰减，策略可考虑减仓或等待 RHA/VT/AMB 确认，但它不是自动平仓命令。</p>
+<hr />
+<h2>11. <code>segment_diagnostics.csv</code>：状态段级审计输出</h2>
+<h3>文件用途</h3>
+<p><code>segment_diagnostics.csv</code> 将逐点 <code>stable_state</code> 压缩成连续状态段，用于回测后审计、状态质量评估、状态定义校验、人工复盘和 walk-forward 稳定性检查。</p>
+<h3>关键字段说明</h3>
+<h4><code>segment_id</code></h4>
+<p><strong>字段类型：</strong> numeric/id<br />
+<strong>含义：</strong> 连续状态段编号。<br />
+<strong>策略使用方式：</strong> 用于把逐点状态聚合到段级审查。</p>
+<h4><code>state</code></h4>
+<p><strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 该段的 stable_state。<br />
+<strong>金融解释：</strong> 代表该连续区间的主导市场机制。</p>
+<h4><code>start_time</code> / <code>end_time</code></h4>
+<p><strong>字段类型：</strong> timestamp<br />
+<strong>含义：</strong> 状态段开始与结束时间。<br />
+<strong>策略使用方式：</strong> 用于复盘和与价格图对齐。</p>
+<h4><code>duration_bar_count</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 状态段持续 bar 数。<br />
+<strong>金融解释：</strong> 过短段可能是噪声或 provisional 状态；过长段若 price expectation 失效则需要审查。</p>
+<h4><code>entry_price</code> / <code>exit_price</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 状态段进入和退出价格。<br />
+<strong>注意：</strong> 这是段级审计字段，不是实时当前行的未来信息。不能在进入时点使用未来 exit_price。</p>
+<h4><code>segment_return_bps</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 状态段从进入到退出的净价格变化，单位 bps。<br />
+<strong>金融解释：</strong> 用于判断该状态段价格行为是否符合状态定义。<br />
+<strong>常见误用：</strong> 把它当策略收益。它不是策略收益，因为没有考虑入场/出场规则、方向、成本、滑点和仓位。</p>
+<h4><code>segment_range_bps</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 状态段内最高价与最低价的区间宽度，单位 bps。<br />
+<strong>金融解释：</strong> 用于判断 RC 是否真小幅、VT/HPEM 是否有足够位移。</p>
+<h4><code>max_favorable_move_bps</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 按该段方向解释计算的最大有利移动。<br />
+<strong>金融解释：</strong> 衡量状态段内潜在方向移动，但不是可实现收益。<br />
+<strong>常见误用：</strong> 当作策略最大收益。</p>
+<h4><code>max_adverse_move_bps</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 按该段方向解释计算的最大不利移动。<br />
+<strong>金融解释：</strong> 用于评估状态段内风险暴露。</p>
+<h4><code>mean_realized_vol_1h_bps</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 段内 1h realized vol 均值。<br />
+<strong>金融解释：</strong> 审查 HPEM/VT 是否具有足够波动，RC/ST 是否过度波动。</p>
+<h4><code>mean_trend_strength_6h</code></h4>
+<p><strong>字段类型：</strong> numeric<br />
+<strong>含义：</strong> 段内 6h trend strength 均值。<br />
+<strong>金融解释：</strong> 审查 VT/ST 是否趋势充分，RC 是否出现不该有的趋势。</p>
+<h4><code>dominant_path_context_6h</code> / <code>dominant_path_label_6h</code></h4>
+<p><strong>字段类型：</strong> categorical<br />
+<strong>含义：</strong> 段内占主导的 6h path context / label。<br />
+<strong>金融解释：</strong> 帮助判断该段是 directional pressure、neutral active、quiet 还是 rejection/cascade。</p>
+<h4><code>segment_quality_issues</code></h4>
+<p><strong>字段类型：</strong> text/list-like<br />
+<strong>含义：</strong> 该状态段发现的质量问题。<br />
+<strong>金融解释：</strong> 例如 HPEM no-response、RHA invalid follows PLIE、RC price too large、VT low move、ST flat。<br />
+<strong>策略使用方式：</strong> 用于模型审计、参数优化、回测分桶，不用于单点 live 触发。</p>
+<hr />
+<h2>12. Dashboard：人工审查与解释工具</h2>
+<p>Dashboard 用于人工审查，不参与模型判断。它适合展示：</p>
+<ul>
+<li>价格与 stable_state 背景；</li>
+<li>belief vector；</li>
+<li>PLIE / HMM / path / price context；</li>
+<li>state confirmation；</li>
+<li>HPEM giveback；</li>
+<li>RHA subtype；</li>
+<li>VT direction；</li>
+<li>price expectation exit flags；</li>
+<li>segment quality table。</li>
+</ul>
+<p>Dashboard 的价值在于解释和审计，而不是反过来改变模型输出。它适合研究复盘、异常检查、状态切换解释和策略接入调试。</p>
+<hr />
+<h2>13. 下游策略如何组合使用输出</h2>
+<p>策略不应只读取 <code>stable_state</code>。推荐至少组合：</p>
+<pre><code class="language-text">stable_state                  市场结构
+belief_gap                    状态置信边际
+directional_state             方向解释
+trade_direction               简化方向
+directional_trading_quality   方向质量
+trading_trigger_quality       交易触发质量
+state_price_expectation_score 状态内价格合规
+price_expectation_exit_flag   状态失效/退出风险
+</code></pre>
+<p>错误示例：</p>
+<pre><code class="language-python">if stable_state == &quot;HPEM&quot;:
+    long_or_short()
+</code></pre>
+<p>正确的组合逻辑示例：</p>
+<pre><code class="language-python">if (
+    stable_state == &quot;HPEM&quot;
+    and directional_state in {&quot;HPEM_UP&quot;, &quot;HPEM_DOWN&quot;}
+    and belief_gap &gt;= threshold
+    and directional_trading_quality &gt;= threshold
+    and state_price_expectation_score &gt;= threshold
+    and price_expectation_exit_flag == 0
+):
+    # consider trend-following / risk-expansion context
+    pass
+</code></pre>
+<p>这只是字段组合逻辑示例，不是收益承诺，也不是具体投资建议。</p>
+<hr />
+<h2>14. 输出字段之间的关系</h2>
+<h3>belief vector vs stable_state</h3>
+<p>belief vector 是连续置信分布；stable_state 是经过稳定层之后的离散状态。</p>
+<h3>candidate_state vs stable_state</h3>
+<p>candidate_state 更敏感；stable_state 更稳健。二者不一致可能表示状态切换正在形成。</p>
+<h3>stable_state vs directional_state</h3>
+<p>stable_state 解释市场结构；directional_state 解释交易方向质量。</p>
+<h3>directional_state vs trade_direction</h3>
+<p>directional_state 是带状态语义的方向解释；trade_direction 是简化方向枚举。</p>
+<h3>trading_trigger_quality vs price_expectation_trading_quality</h3>
+<p>trading_trigger_quality 关注当前状态是否适合交易触发；price_expectation_trading_quality 关注状态段内价格行为是否继续符合该状态定义。</p>
+<h3>price_expectation_exit_flag vs 状态切换</h3>
+<p>exit flag 不一定立刻改变 stable_state。它表示当前状态价格行为出现失效或风险上升，策略可用于减仓、退出、观察或降低信号权重。</p>
+<hr />
+<h2>15. 常见误用与风险</h2>
+<h3>15.1 把 stable_state 当作直接买卖信号</h3>
+<p>错误。stable_state 是市场机制状态，不是买卖指令。应结合方向、质量、belief gap 和 exit flag。</p>
+<h3>15.2 把 HPEM 当作无条件追涨杀跌</h3>
+<p>错误。HPEM 必须看方向、价格穿透、giveback、price expectation。<code>WEAK_HPEM</code> 或 exit flag 表示不能无条件追随。</p>
+<h3>15.3 把所有 RHA 当作反转交易</h3>
+<p>错误。RHA 包含 reversal、stall、weak、invalid follow PLIE。只有 reversal 子型更接近方向交易语境。</p>
+<h3>15.4 忽略 belief_gap</h3>
+<p>低 belief gap 表示状态竞争激烈，策略应更谨慎。</p>
+<h3>15.5 忽略 directional_state</h3>
+<p>尤其对 VT，必须区分 VT_UP、VT_DOWN、VT_MIXED。</p>
+<h3>15.6 忽略 trading_trigger_quality</h3>
+<p>状态识别成立，不代表交易触发质量足够。</p>
+<h3>15.7 忽略 price_expectation_exit_flag</h3>
+<p>当状态内价格行为失效时，继续沿原状态交易可能放大风险。</p>
+<h3>15.8 把 segment_return_bps 当作策略收益</h3>
+<p>segment_return_bps 是状态段审计指标，不包含策略入场、方向、成本、滑点和仓位。</p>
+<h3>15.9 把 Dashboard 当成模型输入</h3>
+<p>Dashboard 是解释工具，不参与模型推理。</p>
+<h3>15.10 把 AMB 理解为模型失败</h3>
+<p>AMB 是保护性 no-trade 状态，表示证据冲突或质量不足。</p>
+<h3>15.11 只看单点输出，不看连续状态段</h3>
+<p>状态质量需要结合持续时间、segment diagnostics 和 price expectation 审查。</p>
+<h3>15.12 在回测中使用未来字段解释输出</h3>
+<p>不能用未来 response、未来收益或 segment 终点信息解释当前 live 时点。</p>
+<hr />
+<h2>16. 输出质量与审计建议</h2>
+<p>建议每次运行后审查：</p>
+<pre><code class="language-text">belief gap / belief entropy
+state duration distribution
+transition reason audit
+state distribution stability
+segment_quality_issues
+HPEM / RHA / VT / RC / ST 的 price expectation issue
+OOS / walk-forward 稳定性
+与 Feature Contract 的输入一致性
+</code></pre>
+<p>如果状态分布突变，应先检查输入契约和 no-leakage 报告，再判断是否为市场 regime 变化。</p>
+<hr />
+<h2>17. 总结：如何正确理解本项目输出</h2>
+<p>本项目输出应被理解为：</p>
+<pre><code class="language-text">市场机制描述
++ 策略上下文
++ 方向解释
++ 交易质量过滤
++ 状态失效风控
++ 审计工具
+</code></pre>
+<p>而不是：</p>
+<pre><code class="language-text">单一买卖信号
+收益预测概率
+机械开平仓指令
+</code></pre>
+<p>最重要的使用原则是：</p>
+<pre><code class="language-text">stable_state                  看市场结构；
+directional_state             看交易方向；
+trading_trigger_quality       看是否值得触发；
+state_price_expectation_score 看状态内价格行为是否合规；
+price_expectation_exit_flag   看状态是否正在失效；
+belief_gap                    看置信边际。
+</code></pre>
+<p>一句话总结：<strong>Output Contract 不是字段清单，而是策略系统正确理解六状态引擎输出的语义边界。</strong></p>
+</main></body></html>

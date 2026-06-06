@@ -1,0 +1,28 @@
+# macOS / editor metadata
+.DS_Store
+**/.DS_Store
+
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local archives and input bundles
+*.zip
+input.zip
+model_input.zip
+
+# Large raw/extracted input data
+input/
+**/_extracted_input/
+
+# Large generated run artifacts
+outputs/run_latest.zip
+**/outputs/run_latest/canonical_features.csv
+**/outputs/run_latest/state_timeseries.csv
+**/outputs/run_latest/six_state_dashboard.html
+

@@ -1,0 +1,31 @@
+states:
+  ST:
+    id: 0
+    name: Stable Trend
+    cn: 稳定趋势
+    description: 趋势推进较稳定，存在一定方向性，清算或主动趋势有序传导；不是极端级联，也不是高吸收拒绝。
+  VT:
+    id: 1
+    name: Volatile Trend
+    cn: 波动趋势
+    description: 价格趋势明显且波动较大，但清算压力不是主解释变量，主动交易主导。
+  RC:
+    id: 2
+    name: Range-bound / Consolidation
+    cn: 区间震荡或整理
+    description: 低清算压力、低主动运动、低路径解释力，市场处于整理或等待。
+  RHA:
+    id: 3
+    name: Reversal / High Absorption
+    cn: 反转或高吸收
+    description: 清算压力明确存在，但价格不再服从该压力，forced flow 被吸收或反向接管。
+  HPEM:
+    id: 4
+    name: High Pressure / Extreme Move
+    cn: 高压力极端运动
+    description: 清算压力穿透市场，价格路径与 forced flow 共振，可能出现 squeeze / flush / cascade。
+  AMB:
+    id: 5
+    name: Ambiguous / No-trade
+    cn: 模糊或观望
+    description: 证据冲突、质量不足、压力混合或不适合高置信交易判断的保护性状态。

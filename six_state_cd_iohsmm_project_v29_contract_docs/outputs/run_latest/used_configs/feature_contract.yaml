@@ -1,0 +1,279 @@
+version: six_state_cd_iohsmm_v2_6_strict_fixed_bundle
+contract_mode: strict_fixed_input_bundle
+primary_clock:
+  role: base_context
+  time_col: time
+  allow_duplicate_time: false
+files:
+  base_context:
+    required: true
+    patterns:
+    - base_context.csv
+  plie:
+    required: true
+    patterns:
+    - plie_predictions_source.csv
+  absorption_memory:
+    required: true
+    patterns:
+    - absorption_memory.csv
+  path_absorption_multiscale:
+    required: true
+    patterns:
+    - path_absorption_multiscale.csv
+  path_absorption:
+    required: true
+    patterns:
+    - path_absorption.csv
+  price_context_features:
+    required: true
+    patterns:
+    - price_context_features.csv
+  liqprice_features:
+    required: true
+    patterns:
+    - liqprice_features.csv
+  features_liq_dataflow:
+    required: true
+    patterns:
+    - features_liq_dataflow.csv
+no_future_columns_regex:
+- ^ret_[0-9]+m_bps$
+- ^plie_aligned_ret_.*
+- ^plie_residual_.*
+- ^plie_absorption_.*
+- ^actual_return_bps$
+- ^aligned_actual_response_bps$
+- ^response_percentile$
+- ^absorption_raw$
+- ^transmission_ratio_raw$
+- ^transmission_ratio_raw_.*
+- ^path_future_.*
+join:
+  asof_tolerance_minutes: 70
+  price_context_asof_tolerance_minutes: 70
+  max_liq_feature_age_minutes: 90
+  max_market_response_age_hours: 12
+required_core_columns:
+  base_context:
+  - time
+  - price
+  - split
+  - hmm_state
+  - hmm_conf
+  - liq_entropy
+  - age_in_state_source
+  - state_severity
+  - plie_direction
+  - plie_main_bps
+  - plie_reliability
+  - plie_intensity
+  - plie_phase
+  plie:
+  - time
+  - p_state_1
+  - p_state_2
+  - p_state_3
+  - p_state_4
+  - p_state_5
+  - hmm_state
+  - hmm_conf
+  - liq_entropy
+  - age_in_state_source
+  - state_pressure_direction
+  - state_severity
+  - plie_direction
+  - plie_reliability
+  - plie_intensity
+  - plie_accel_pos
+  - plie_strong_entry
+  - plie_transition_type
+  - plie_transition_severity
+  - plie_passive_20m_bps
+  - plie_passive_30m_bps
+  - plie_passive_60m_bps
+  - plie_main_bps
+  absorption_memory:
+  - time
+  - mar_abs_score_q_staleaware_ewm_6_30m
+  - mar_active_force_aligned_staleaware_ewm_6_30m
+  - mar_active_force_price_staleaware_ewm_6_30m
+  - mar_directional_core_freshness_30m
+  - mar_directional_core_age_hours_30m
+  - mar_directional_quality_ewm_6_30m
+  - mar_takeover_count_12_30m
+  - mar_amplification_persistence_6_30m
+  - mar_absorption_persistence_6_30m
+  - mar_neutral_active_strength_evidence_ewm_6_30m
+  - mar_neutral_context_persistence_12_30m
+  - mar_response_conflict_score
+  path_absorption:
+  - time
+  - available_time
+  - window_hours
+  - path_context
+  - path_label
+  - path_absorption_score_0_100
+  - path_pressure_rejection_score
+  - path_active_dominance_score
+  - path_active_dominance_price_score
+  - path_transmission_ratio
+  - path_direction_consistency
+  - path_quality
+  - path_cascade_score
+  path_absorption_multiscale:
+  - time
+  - available_time
+  - path_context_6h
+  - path_context_12h
+  - path_context_24h
+  - path_context_48h
+  - path_label_6h
+  - path_label_12h
+  - path_label_24h
+  - path_label_48h
+  - path_absorption_score_6h
+  - path_absorption_score_12h
+  - path_absorption_score_24h
+  - path_absorption_score_48h
+  - path_pressure_rejection_score_6h
+  - path_pressure_rejection_score_12h
+  - path_pressure_rejection_score_24h
+  - path_pressure_rejection_score_48h
+  - path_active_dominance_score_6h
+  - path_active_dominance_score_12h
+  - path_active_dominance_score_24h
+  - path_active_dominance_score_48h
+  - path_active_dominance_price_score_6h
+  - path_active_dominance_price_score_12h
+  - path_active_dominance_price_score_24h
+  - path_active_dominance_price_score_48h
+  - path_transmission_ratio_6h
+  - path_transmission_ratio_12h
+  - path_transmission_ratio_24h
+  - path_transmission_ratio_48h
+  - path_direction_consistency_6h
+  - path_direction_consistency_12h
+  - path_direction_consistency_24h
+  - path_direction_consistency_48h
+  - path_cascade_score_6h
+  - path_cascade_score_12h
+  - path_cascade_score_24h
+  - path_cascade_score_48h
+  - path_data_quality_6h
+  - path_data_quality_12h
+  - path_data_quality_24h
+  - path_data_quality_48h
+  - path_signal_clarity_6h
+  - path_signal_clarity_12h
+  - path_signal_clarity_24h
+  - path_signal_clarity_48h
+  - path_activity_level_6h
+  - path_activity_level_12h
+  - path_activity_level_24h
+  - path_activity_level_48h
+  price_context_features:
+  - time
+  - price_feature_time
+  - price_feature_age_min
+  - past_return_1h_bps
+  - past_return_3h_bps
+  - past_return_6h_bps
+  - past_return_12h_bps
+  - past_return_24h_bps
+  - realized_vol_1h_bps
+  - realized_vol_6h_bps
+  - realized_vol_24h_bps
+  - realized_vol_1h_per_sqrt_hour_bps
+  - realized_vol_6h_per_sqrt_hour_bps
+  - realized_vol_24h_per_sqrt_hour_bps
+  - realized_vol_1h_z
+  - realized_vol_6h_z
+  - realized_vol_24h_z
+  - range_width_1h_bps
+  - range_width_6h_bps
+  - range_width_24h_bps
+  - range_compression_1h
+  - range_compression_6h
+  - range_compression_24h
+  - range_to_vol_1h
+  - range_to_vol_6h
+  - range_to_vol_24h
+  - trend_efficiency_1h
+  - trend_efficiency_6h
+  - trend_efficiency_24h
+  - trend_snr_1h
+  - trend_snr_6h
+  - trend_snr_24h
+  - trend_slope_1h
+  - trend_slope_6h
+  - trend_slope_24h
+  - trend_slope_tstat_1h
+  - trend_slope_tstat_6h
+  - trend_slope_tstat_24h
+  - trend_r2_1h
+  - trend_r2_6h
+  - trend_r2_24h
+  - trend_strength_1h
+  - trend_strength_6h
+  - trend_strength_24h
+  - trend_direction_1h
+  - trend_direction_6h
+  - trend_direction_24h
+  - bar_direction_align_1h
+  - bar_direction_align_6h
+  - bar_direction_align_24h
+  - block_direction_align_6h
+  - block_direction_align_24h
+  - trend_consistency_1h
+  - trend_consistency_6h
+  - trend_consistency_24h
+  - vol_of_vol_6h
+  - vol_of_vol_24h
+  - vol_of_vol_48h
+  - vol_of_vol_abs_6h
+  - vol_of_vol_abs_24h
+  - vol_of_vol_abs_48h
+  - max_jump_z_1h
+  - max_jump_z_6h
+  - max_jump_z_24h
+  - jump_count_1h
+  - jump_count_6h
+  - jump_count_24h
+  - jump_ratio_bv_6h
+  - jump_ratio_bv_24h
+  - jump_proxy_1h
+  - jump_proxy_6h
+  - jump_proxy_24h
+  - signed_max_jump_return_1h_bps
+  - signed_max_jump_return_6h_bps
+  - signed_max_jump_return_24h_bps
+  - price_missing_ratio_1h
+  - price_missing_ratio_6h
+  - price_missing_ratio_24h
+  - price_gap_flag_1h
+  - price_gap_flag_6h
+  - price_gap_flag_24h
+  - price_outlier_flag_1h
+  - price_outlier_flag_6h
+  - price_outlier_flag_24h
+  liqprice_features:
+  - time
+  - trend_pressure
+  - kalman_slope
+  - vol_adaptive
+  - fll_spike_kama
+  - fsl_spike_kama
+  - fll_velocity_gaussian
+  - fsl_velocity_gaussian
+  - fll_acceleration_gaussian
+  - fsl_acceleration_gaussian
+  features_liq_dataflow:
+  - time
+  - z_logtotalp
+  - z_sdom
+  - risk_priority_number
+  - dominance
+  - z_fll_cwt_kf
+  - z_fsl_cwt_kf
+optional_columns: {}

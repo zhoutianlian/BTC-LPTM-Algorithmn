@@ -1,0 +1,7 @@
+state_id,state,name,cn,meaning
+0,ST,Stable Trend,稳定趋势,有序趋势；清算或主动趋势有一定方向，但不是级联或高吸收拒绝。
+1,VT,Volatile Trend,波动趋势,主动交易主导的高波动趋势；PLIE 不是主解释变量。
+2,RC,Range-bound / Consolidation,区间震荡或整理,低清算压力、低主动运动、低路径解释力。
+3,RHA,Reversal / High Absorption,反转或高吸收,清算压力仍在，但价格路径拒绝该压力，forced flow 被吸收或接管。
+4,HPEM,High Pressure / Extreme Move,高压力极端运动,清算压力穿透并被价格路径放大，可能发生 squeeze / flush / cascade。
+5,AMB,Ambiguous / No-trade,模糊或观望,证据冲突、混合压力、低质量或不适合高置信判断。

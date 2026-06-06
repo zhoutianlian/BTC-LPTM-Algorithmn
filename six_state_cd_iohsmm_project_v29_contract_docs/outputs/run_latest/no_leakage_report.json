@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "forbidden_columns_found": [],
+  "available_time_violations": {
+    "absorption_memory_latest_abs_available_time_30m": 0,
+    "absorption_memory_last_directional_core_available_time_30m": 0,
+    "path_absorption_multiscale_available_time": 0,
+    "path_absorption_available_time": 0
+  },
+  "missing_required_columns": {},
+  "duplicate_time_count": 0,
+  "notes": [
+    "Raw PLIE file contains forbidden columns and they were excluded: ['plie_absorption_20m', 'plie_absorption_30m', 'plie_absorption_60m', 'plie_aligned_ret_20m_bps', 'plie_aligned_ret_30m_bps', 'plie_aligned_ret_60m_bps', 'plie_residual_20m_bps', 'plie_residual_30m_bps', 'plie_residual_60m_bps', 'ret_20m_bps', 'ret_30m_bps', 'ret_60m_bps']",
+    "Using path_absorption_multiscale.csv as preferred 6h/12h/24h/48h path layer.",
+    "path_absorption available window_hours=[24]; canonical frame uses 24h compatibility fields.",
+    "Using price_context_features.csv as preferred past-only price context layer."
+  ]
+}

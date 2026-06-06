@@ -1,0 +1,350 @@
+model:
+  states: [ST, VT, RC, RHA, HPEM, AMB]
+  d_max: 96
+  temperature: 1.35
+  emission_floor: 0.000001
+  emission_power: 1.0
+
+evidence:
+  robust_quantile_low: 0.05
+  robust_quantile_high: 0.95
+  clip_low: 0.0
+  clip_high: 1.0
+
+filter:
+  base_exit_logit:
+    ST: -2.30
+    VT: -2.05
+    RC: -2.55
+    RHA: -2.10
+    HPEM: -2.35
+    AMB: -1.45
+  age_coef:
+    ST: 0.18
+    VT: 0.20
+    RC: 0.14
+    RHA: 0.22
+    HPEM: 0.26
+    AMB: 0.10
+  hazard_clip: [0.01, 0.75]
+
+stability:
+  ewma_lambda: 0.75
+  belief_gap_min: 0.06
+  tau_in:
+    ST: 0.40
+    VT: 0.47
+    RC: 0.45
+    RHA: 0.42
+    HPEM: 0.50
+    AMB: 0.46
+  tau_out:
+    ST: 0.35
+    VT: 0.38
+    RC: 0.35
+    RHA: 0.40
+    HPEM: 0.38
+    AMB: 0.30
+  min_duration:
+    ST: 2
+    VT: 2
+    RC: 3
+    RHA: 2
+    HPEM: 1
+    AMB: 1
+
+validation:
+  scenario_windows:
+    rha_pressure_rejection:
+      start: "2026-04-03"
+      end: "2026-04-04 23:59:59"
+      expected_primary: ["RHA"]
+      note: "向下清算压力持续但价格不跌反升，应偏 RHA / pressure rejection。"
+    vt_active_dominance:
+      start: "2026-01-29"
+      end: "2026-01-31 23:59:59"
+      expected_primary: ["VT"]
+      note: "清算压力中性但价格变化巨大，应偏 VT / active dominance，不应偏 RHA。"
+
+responsiveness:
+  enabled: true
+
+  # Scheme 1: short-horizon price-shock fast lane.
+  # These thresholds only lower hysteresis for semantically valid target states;
+  # they do not directly overwrite the candidate state.
+  price_shock:
+    enabled: true
+    min_price_shock_1h: 0.72
+    min_short_impulse_1h: 0.45
+    min_trend_strength_1h: 0.45
+    max_price_missing_ratio_1h: 0.20
+    block_on_price_gap: true
+    allow_price_outlier_as_real_shock: true
+    shock_lambda: 0.55
+    tau_discount:
+      ST: 0.03
+      VT: 0.07
+      RC: 0.02
+      RHA: 0.06
+      HPEM: 0.08
+      AMB: 0.04
+    gap_discount: 0.03
+    local_cooldown_steps: 1
+    allowed:
+      RC: [VT, HPEM, AMB]
+      ST: [HPEM, RHA, AMB]
+      HPEM: [RHA, ST, VT, AMB]
+      RHA: [VT, RC, HPEM, AMB]
+      VT: [HPEM, RC, AMB, ST]
+      AMB: [VT, HPEM, RHA, RC, ST]
+
+  # Scheme 2: state invalidity / exit pressure.
+  # Exit pressure accumulates repeated contradiction of the current stable state.
+  # It makes tau_out operational and avoids holding stale states too long.
+  exit_pressure:
+    enabled: true
+    decay: 0.55
+    soft_threshold: 0.45
+    hard_threshold: 0.65
+    exit_lambda: 0.58
+    tau_discount:
+      ST: 0.04
+      VT: 0.05
+      RC: 0.04
+      RHA: 0.06
+      HPEM: 0.07
+      AMB: 0.03
+    hard_exit_extra_discount: 0.04
+    gap_discount: 0.03
+    min_duration_for_exit_discount:
+      ST: 4
+      VT: 4
+      RC: 5
+      RHA: 6
+      HPEM: 4
+      AMB: 1
+
+  filter_shock_weights:
+    exit:
+      HPEM_reverse_shock: 1.15
+      RHA_active_breakout: 0.85
+      RHA_rebreak_cascade: 0.65
+      VT_liq_cascade_shock: 0.75
+      RC_short_impulse: 1.00
+      ST_shock: 0.65
+    target:
+      HPEM_to_RHA_reverse_shock: 0.90
+      RC_to_VT_active_shock: 0.85
+      RC_to_HPEM_aligned_shock: 0.80
+      ST_to_HPEM_aligned_shock: 0.75
+      ST_to_RHA_reverse_shock: 0.70
+      RHA_to_VT_active_shock: 0.75
+      RHA_to_HPEM_rebreak: 0.65
+
+  # Scheme 3 is deliberately kept diagnostic-only for now.
+  fast_slow_path:
+    enabled: false
+    diagnostic_only: true
+
+
+# V2.4: directional lifecycle and trading trigger quality.
+# Keeps stable_state unchanged while adding HPEM/RHA direction compliance,
+# VT_UP / VT_DOWN / VT_MIXED, and directional_trading_quality.
+directional_quality:
+  enabled: true
+  defaults:
+    low_directional_quality: 0.35
+  HPEM:
+    grace_bars: 2
+    min_aligned_mfe_bps: 80
+    min_price_impact_score: 0.45
+    min_realized_vol_1h_bps: 60
+    min_jump_proxy_1h: 0.35
+    giveback_abs_bps: 120
+    giveback_ratio: 0.55
+    adverse_move_bps: 60
+    confirm_exit_bars: 2
+  RHA:
+    reversal_min_mfe_bps: 80
+    reversal_min_score: 0.60
+    stall_max_abs_move_bps: 60
+    stall_requires_absorption: 0.55
+    invalid_if_price_follows_plie_bps: 80
+    stall_quality_multiplier: 0.65
+    weak_quality_multiplier: 0.45
+    invalid_quality_multiplier: 0.20
+  VT:
+    up_threshold: 0.30
+    down_threshold: -0.30
+    min_trend_strength_6h: 0.42
+    min_direction_confidence: 0.45
+    mixed_window_bars: 6
+    mixed_if_up_and_down_ratio_gt: 0.25
+    mixed_quality_multiplier: 0.35
+  ST:
+    min_trend_strength_6h: 0.38
+    min_trend_consistency_6h: 0.50
+
+# V2.3: causal state confirmation and trading-trigger quality layer.
+# This does not overwrite stable_state. It adds confirmed / pending / weak flags and
+# trading_trigger_quality to help distinguish market-state recognition from tradable state quality.
+state_confirmation:
+  enabled: true
+  defaults:
+    confirm_bars: 3
+    min_quality_score: 0.60
+    weak_quality_score: 0.45
+    pending_quality_multiplier: 0.55
+    weak_quality_multiplier: 0.35
+    unconfirmed_quality_multiplier: 0.70
+  states:
+    RC:
+      confirm_bars: 5
+      min_quality_score: 0.65
+      weak_quality_score: 0.46
+      max_trend_strength_6h: 0.50
+      max_trend_consistency_6h: 0.58
+      max_active_evidence: 0.55
+      min_range_compression_6h: 0.45
+    HPEM:
+      confirm_bars: 2
+      min_quality_score: 0.68
+      weak_quality_score: 0.48
+      min_abs_return_bps: 30
+      min_range_bps: 60
+      min_realized_vol_1h_bps: 45
+      min_jump_proxy_1h: 0.30
+      min_price_impact: 0.45
+      immediate_min_price_impact: 0.70
+      immediate_min_cascade: 0.50
+    VT:
+      confirm_bars: 3
+      min_quality_score: 0.62
+      weak_quality_score: 0.44
+      min_abs_return_bps: 35
+      min_range_bps: 70
+      min_movement_confirmation: 0.45
+    ST:
+      confirm_bars: 3
+      min_quality_score: 0.60
+      weak_quality_score: 0.43
+      min_abs_return_bps: 25
+      min_range_bps: 55
+    RHA:
+      confirm_bars: 2
+      min_quality_score: 0.60
+      weak_quality_score: 0.42
+    AMB:
+      confirm_bars: 1
+      min_quality_score: 0.55
+      weak_quality_score: 0.35
+
+# V2.3: segment-level audit thresholds. These are audit flags, not hard model constraints.
+segment_quality:
+  short_segment_bars: 6
+  low_move_bps: 30
+  low_range_bps: 60
+  rc_high_trend_strength_6h: 0.50
+  rc_high_trend_consistency_6h: 0.58
+  weak_trend_strength_6h: 0.38
+  weak_trend_consistency_6h: 0.50
+  hpem_min_price_impact: 0.45
+  vt_min_movement_confirmation: 0.45
+  low_trading_quality: 0.45
+  low_directional_quality: 0.45
+  hpem_giveback_bps: 120
+  hpem_min_aligned_mfe_bps: 80
+
+output:
+  write_full_debug: false
+
+# V2.5: Price Expectation Compliance Layer.
+# These rules do not redefine the six states. They check whether the causal price path
+# since the current stable-state entry still matches the expected price behavior.
+# V2.5: price-behavior expectation compliance.
+# This keeps six stable-state definitions intact, but continuously checks whether the
+# current state segment's causal price path still matches the state's expected price behavior.
+# Strong failures are allowed to add exit pressure; row-level quality penalties are always exported.
+state_price_expectation:
+  enabled: true
+  enable_stability_exit: true
+  use_in_stability: true
+
+  stability_boost:
+    soft_threshold: 0.55
+    hard_threshold: 0.75
+    lambda: 0.52
+    gap_discount: 0.02
+    hard_exit_extra_discount: 0.05
+    target_min_stable_belief: 0.12
+    hard_target_min_stable_belief: 0.10
+    target_belief_boost: 0.06
+    allow_target_override: true
+    tau_discount:
+      ST: 0.03
+      VT: 0.04
+      RC: 0.03
+      RHA: 0.05
+      HPEM: 0.06
+      AMB: 0.02
+
+  states:
+    HPEM:
+      grace_bars: 2
+      min_aligned_mfe_bps: 80
+      min_price_impact: 0.45
+      min_entry_to_current_abs_return_bps: 35
+      min_entry_to_current_range_bps: 70
+      min_realized_vol_1h_bps: 60
+      min_jump_proxy_1h: 0.35
+      giveback_abs_bps: 120
+      giveback_ratio: 0.55
+      adverse_move_bps: 60
+      exit_confirm_bars: 1
+      exit_pressure_boost: 0.35
+
+    RHA:
+      require_reversal_for_trading: true
+      allow_stall_as_stable_state: true
+      stall_trading_quality_cap: 0.35
+      invalid_if_price_follows_plie_bps: 80
+      reversal_min_mfe_bps: 80
+      reversal_min_score: 0.60
+      weak_no_reversal_confirm_bars: 4
+      exit_weak_no_reversal: true
+      stall_confirm_bars: 4
+      stall_max_abs_move_bps: 60
+      stall_requires_absorption: 0.55
+      exit_on_stall: false
+      exit_confirm_bars: 2
+      exit_pressure_boost: 0.30
+
+    RC:
+      max_entry_to_current_abs_return_bps: 80
+      max_entry_to_current_range_bps: 140
+      max_trend_strength_6h: 0.50
+      max_trend_consistency_6h: 0.58
+      exit_confirm_bars: 2
+      exit_pressure_boost: 0.30
+
+    VT:
+      min_entry_to_current_abs_return_bps: 60
+      min_entry_to_current_range_bps: 120
+      min_realized_vol_1h_bps: 45
+      min_realized_vol_6h_bps: 100
+      min_trend_strength_6h: 0.40
+      low_move_confirm_bars: 2
+      mixed_trading_quality_cap: 0.35
+      exit_confirm_bars: 2
+      exit_pressure_boost: 0.22
+
+    ST:
+      min_entry_to_current_abs_return_bps: 35
+      min_entry_to_current_range_bps: 70
+      min_trend_strength_6h: 0.38
+      min_trend_consistency_6h: 0.50
+      max_entry_to_current_abs_return_bps: 220
+      max_entry_to_current_range_bps: 420
+      max_realized_vol_1h_bps: 80
+      exit_confirm_bars: 2
+      exit_pressure_boost: 0.22

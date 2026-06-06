@@ -1,0 +1,710 @@
+你是一名高级量化算法研究员、BTC / Crypto 衍生品市场机制专家、机器学习状态模型专家、交易规则工程师和 Python 工程化负责人。
+
+我现在有一个已经完成多轮设计和工程实现的项目：
+
+# 六状态清算—吸收市场状态引擎
+Six-State Liquidation–Absorption Market State Engine
+
+我会上传本项目的完整代码、文档、配置和最新运行输出。你必须先完整阅读这些材料，再开始分析和优化。请不要凭空重设模型，也不要忽略当前已经完成的设计。
+
+项目压缩包
+six_state_cd_iohsmm_project_v29_contract_docs.zip
+文档位于项目压缩包
+six_state_cd_iohsmm_project_v29_contract_docs/docs
+当前输出位于项目压缩包
+six_state_cd_iohsmm_project_v29_contract_docs/outputs/run_latest
+输入压缩包
+model_input.zip
+
+
+---
+
+# 1. 项目一句话背景
+
+本项目不是普通分类器，不是收益预测模型，也不是直接交易信号生成器。
+
+它是一个面向 BTC / Crypto 杠杆市场的显式概率状态推理引擎，用来识别：
+
+清算压力是否存在；
+清算压力是否穿透市场；
+forced flow 是否被吸收；
+价格是否拒绝清算压力；
+市场是否由主动交易主导；
+证据是否冲突或不适合交易。
+
+模型输出的是六个市场状态的 belief vector 和稳定状态，不是买卖信号。
+
+核心机制是：
+
+清算压力只是压力源；
+价格响应才是市场裁决；
+path absorption 提供多尺度路径语境；
+matured market response memory 提供已经成熟的短期响应记忆；
+price context 判断价格行为是否符合状态定义；
+quality / conflict layer 防止坏数据或冲突证据被误读；
+duration / transition constraints 防止状态被单根 bar 随意扰动。
+
+---
+
+# 2. 六个市场状态
+
+当前模型输出六个状态：
+
+ST    Stable Trend / 稳定趋势
+VT    Volatile Trend / 波动趋势
+RC    Range-bound / Consolidation / 区间震荡或整理
+RHA   Reversal / High Absorption / 反转或高吸收
+HPEM  High Pressure / Extreme Move / 高压力极端运动
+AMB   Ambiguous / No-trade / 模糊或观望
+
+请严格保留这些状态定义，不要新增第七状态，不要重命名状态。
+
+## ST
+
+温和、有序、非极端趋势。
+它不是 HPEM，不是高波级联，也不是横盘。
+应体现一定趋势性和方向一致性，但波动不应极端。
+
+## VT
+
+主动交易、外生冲击或价格自身动量主导的高波趋势。
+它不是 PLIE 主导，不是 liquidation-driven cascade。
+VT 需要方向子层：
+VT_UP
+VT_DOWN
+VT_MIXED
+
+## RC
+
+低压力、低波动、低趋势、区间压缩或等待状态。
+RC 不等于一定可以做区间交易。
+如果价格变化明显、趋势增强或 range break，RC 假设应失效。
+
+## RHA
+
+清算压力仍在，但价格不再服从该压力。
+它不是必然反转。
+RHA 需要区分：
+RHA_REVERSAL_UP
+RHA_REVERSAL_DOWN
+RHA_STALL
+RHA_WEAK
+INVALID_RHA_FOLLOWS_PLIE
+
+只有 RHA_REVERSAL_UP / DOWN 更具方向交易意义。
+RHA_STALL 只是吸收或停滞，不一定适合方向交易。
+
+## HPEM
+
+清算压力穿透市场，价格顺 PLIE / forced flow 方向级联或极端运动。
+HPEM 不是普通高波动。
+HPEM 必须有方向合规：
+HPEM_UP
+HPEM_DOWN
+WEAK_HPEM
+
+如果 HPEM 出现 no response、giveback、decay 或 adverse move，应该快速降权或退出。
+
+## AMB
+
+保护性 no-trade 状态。
+表示证据冲突、低质量、混合压力或不适合高置信交易判断。
+AMB 不是模型失败。
+
+---
+
+# 3. 当前算法架构
+
+当前工程已经实现以下主流程：
+
+Fixed Input Bundle
+→ No-leakage Canonical Frame
+→ Semantic Evidence Layer
+→ Six-state Filtered Belief Engine
+→ Production Stability Layer
+→ Responsiveness / Exit Pressure Layer
+→ Causal State Confirmation + Trading Trigger Quality
+→ Directional Quality Layer
+→ Price Expectation Compliance Layer
+→ Segment Diagnostics
+→ Dashboard / Strategy-facing Outputs
+
+请不要推翻这个架构。下一轮优化只能在这个架构上做细节增强。
+
+---
+
+# 4. 输入契约状态
+
+当前项目已经采用 strict fixed input bundle。
+
+所有输入文件都是必需的，不允许 fallback，不允许缺文件后静默降级。
+
+必需输入文件包括：
+
+base_context.csv
+plie_predictions_source.csv
+absorption_memory.csv
+path_absorption_multiscale.csv
+path_absorption.csv
+price_context_features.csv
+liqprice_features.csv
+features_liq_dataflow.csv
+
+其中：
+
+base_context.csv 是主 source-clock 时间骨架；
+plie_predictions_source.csv 提供当前 PLIE / liquidation pressure；
+absorption_memory.csv 提供 matured market response memory；
+path_absorption_multiscale.csv 提供 6h / 12h / 24h / 48h path context / path label / path scores；
+path_absorption.csv 是 24h compatibility / audit layer；
+price_context_features.csv 提供 realized vol、range compression、trend strength、trend consistency、jump proxy 等价格上下文；
+liqprice_features.csv 是 legacy price/liquidation micro-context auxiliary channel；
+features_liq_dataflow.csv 是 liquidation-stress / volatility-stress auxiliary diagnostics。
+
+注意：
+liqprice_features.csv 和 features_liq_dataflow.csv 是 required for input consistency，但不是六状态主逻辑，不允许覆盖 PLIE / HMM、matured memory、multiscale path、price context、quality/conflict、duration/transition constraints。
+
+---
+
+# 5. No-leakage 原则
+
+必须严格遵守：
+
+feature_time <= t
+available_time <= time
+backward-asof join
+matured memory only
+filtered posterior only
+不能使用 future return
+不能使用 offline smoothed posterior
+不能用 segment 结束后的统计决定 segment 内的入场或退出
+
+禁止进入 live canonical frame 的未来函数字段族包括：
+
+ret_20m_bps / ret_30m_bps / ret_60m_bps
+plie_aligned_ret_*
+plie_residual_*
+plie_absorption_*
+actual_return_bps
+aligned_actual_response_bps
+response_percentile
+absorption_raw
+transmission_ratio_raw
+path_future_*
+
+如果发现未来函数进入模型，请直接指出并修复，不要继续分析结果。
+
+---
+
+# 6. 当前主要输出文件
+
+我会上传最新运行输出。重点文件包括：
+
+state_timeseries.csv
+state_timeseries_full_debug.csv
+segment_diagnostics.csv
+segment_quality_flags.csv
+low_quality_segment_examples.csv
+validation_report.json / md
+six_state_dashboard.html
+used_configs/model_config.yaml
+used_configs/feature_contract.yaml
+
+请先读取这些文件，再做判断。
+
+---
+
+# 7. 当前关键输出字段
+
+策略和诊断不能只看 stable_state。至少需要同时看：
+
+stable_state
+candidate_state
+b_ST
+b_VT
+b_RC
+b_RHA
+b_HPEM
+b_AMB
+belief_gap
+state_duration
+transition_reason
+top_evidence
+
+directional_state
+trade_direction
+direction_confidence
+directional_trading_quality
+directional_no_trade_reason
+
+state_confirmation_score
+state_confirmation_status
+trading_trigger_quality
+weak_state_flag
+
+state_price_expectation_score
+state_price_expectation_issue
+price_expectation_exit_flag
+price_expectation_exit_target
+price_expectation_exit_reason
+price_expectation_trading_quality
+
+segment_id
+segment_return_bps
+segment_range_bps
+max_favorable_move_bps
+max_adverse_move_bps
+segment_quality_issues
+
+字段含义：
+
+stable_state：
+    稳定市场结构状态，不是买卖信号。
+
+candidate_state：
+    当前 belief 最强的即时候选状态，更敏感，但不够稳定。
+
+belief vector：
+    六状态置信分布，不是涨跌概率，不是收益概率。
+
+belief_gap：
+    第一状态和第二状态的置信边际。低 gap 说明状态竞争激烈。
+
+directional_state：
+    交易方向解释层，例如 HPEM_DOWN、RHA_REVERSAL_UP、VT_MIXED。
+
+trade_direction：
+    简化方向枚举，例如 UP / DOWN / MIXED / NO_TRADE。
+
+directional_trading_quality：
+    方向交易解释质量。
+
+trading_trigger_quality：
+    当前状态是否适合作为交易触发。
+
+state_price_expectation_score：
+    当前状态段内价格行为是否仍符合该状态定义。
+
+price_expectation_exit_flag：
+    当前状态价格行为已经出现失效或风险上升。它不是机械平仓指令，但应作为减仓、退出、禁止新仓或风控观察的重要信号。
+
+---
+
+# 8. 已经完成的关键版本演进
+
+当前项目已经完成以下优化：
+
+## V2.2 Responsiveness
+
+加入：
+短期 price shock fast lane；
+state invalidity / exit pressure；
+tau_out 生效；
+动态降低 tau_in / belief_gap / EWMA inertia；
+解决价格剧烈变化时状态响应太慢的问题。
+
+## V2.3 Causal State Confirmation + Trading Trigger Quality
+
+加入：
+state_confirmation_score；
+state_confirmation_status；
+trading_trigger_quality；
+weak_state_flag；
+segment_diagnostics；
+区分 stable_state 与 trading-quality state。
+
+## V2.4 Directional Quality
+
+加入：
+HPEM_UP / HPEM_DOWN / WEAK_HPEM；
+RHA_REVERSAL_UP / RHA_REVERSAL_DOWN / RHA_STALL / RHA_WEAK / INVALID_RHA_FOLLOWS_PLIE；
+VT_UP / VT_DOWN / VT_MIXED；
+directional_trading_quality；
+direction_confidence；
+directional_exit_trigger_flag。
+
+## V2.5 Price Expectation Compliance
+
+加入：
+state_price_expectation_score；
+state_price_expectation_issue；
+price_expectation_exit_flag；
+price_expectation_exit_target；
+price_expectation_exit_reason；
+price_expectation_trading_quality；
+将状态段内价格行为不符合定义的信号接入 exit pressure。
+
+## V2.6 - V2.9 文档与契约优化
+
+完成：
+strict fixed input bundle；
+Feature Contract；
+Output Contract；
+算法原理文档；
+策略交接文档；
+docs 目录精简。
+
+---
+
+# 9. 当前模型已经基本满意的部分
+
+当前六个 stable_state 的整体方向已经比较符合预期：
+
+HPEM 基本能识别清算压力穿透；
+RHA 基本能识别吸收、拒绝和反向接管；
+VT 基本能识别非清算主导的主动趋势；
+RC 基本能识别低压力、低波、低趋势；
+ST 基本能识别温和有序趋势；
+AMB 基本作为保护性 no-trade 状态。
+
+Dashboard、segment diagnostics、directional quality、price expectation compliance 已经能帮助人工审查状态质量。
+
+---
+
+# 10. 当前仍未完美权衡的核心瓶颈
+
+现在最重要的未解决问题是：
+
+## 问题 1：状态退出灵敏度
+
+我们希望状态一旦不再符合其金融定义，就快速退出或切换。
+
+例如：
+
+HPEM：
+    应顺 PLIE 方向连续穿透。
+    如果出现 no response、giveback、decay、adverse move，应快速退出或降权。
+
+RHA：
+    如果是 reversal，应体现反 PLIE 接管。
+    如果价格重新服从 PLIE，应退出 RHA。
+    如果只是 stall，可以保留状态语境但不应作为方向交易。
+
+RC：
+    价格变化应小。
+    如果出现明显漂移、range break、trend_strength 上升，应退出 RC。
+
+VT：
+    价格变化应大，方向可以短期变化。
+    如果 low move / low volatility，VT 质量应下降或退出。
+
+ST：
+    应是温和趋势。
+    如果 flat 或过于 extreme，应退出或降权。
+
+当前 V2.5 已经能识别很多 price expectation failure，但仍需要更好地控制：
+失效信号如何影响 stable_state；
+哪些失效只降低 trading quality；
+哪些失效必须快速触发 state exit。
+
+## 问题 2：状态持续性
+
+我们又希望状态有稳定性，不要因为短期噪声频繁跳变。
+
+高频切换会造成：
+交易过度；
+状态解释不稳定；
+策略频繁进出；
+回测换手和成本上升；
+实盘执行困难。
+
+所以当前的核心优化难点是：
+
+如何同时做到：
+状态一旦不符合定义就尽快退出；
+但又不因为单根 bar、短期噪声或局部价格跳动而频繁切换。
+
+这就是下一轮需要重点优化的 trade-off：
+
+Exit sensitivity
+vs
+State persistence
+
+或者说：
+
+快速退出失效状态
+vs
+避免高频状态抖动
+
+---
+
+# 11. 下一轮优化的目标
+
+请基于上传的最新代码和输出结果，重点优化以下问题：
+
+1. 状态退出机制是否过宽或过窄；
+2. price_expectation_exit_flag 是否应该更强地影响 stable_state；
+3. 哪些 price expectation issue 应只影响 trading quality；
+4. 哪些 issue 应真正触发 stable_state exit；
+5. 如何避免 HPEM / RHA / VT / RC / ST 因单根 bar 误退出；
+6. 如何设计 state-specific exit confirmation；
+7. 如何设计 state-specific minimum stay / maximum invalid hold；
+8. 如何使用 accumulated invalidity，而不是单点 invalidity；
+9. 如何在不同状态下使用不同 exit thresholds；
+10. 如何保持 state persistence，同时减少明显滞后；
+11. 如何用 segment diagnostics 验证优化是否有效；
+12. 如何用 dashboard 审查优化后的切换是否合理。
+
+---
+
+# 12. 不要做的事情
+
+不要重新定义六个状态。
+不要新增第七状态。
+不要把模型改成价格预测器。
+不要取消 duration / hysteresis / production stability。
+不要简单降低所有状态的 min_duration。
+不要简单提高整体切换频率。
+不要让状态跟随每根价格 bar 抖动。
+不要让 AMB 过度吸收其他状态。
+不要让 HPEM / RHA 因轻微信号来回跳。
+不要只看逐点状态，要看连续状态段。
+不要使用未来数据或 segment 完结信息优化实时逻辑。
+不要忽略交易成本和滑点。
+不要把 stable_state 当成直接交易信号。
+
+---
+
+# 13. 希望你重点分析的技术方向
+
+请重点考虑以下方案，但不要机械执行；必须先基于实际输出数据诊断。
+
+## 方案 A：状态特定的 invalidity accumulation
+
+不要用单点 issue 直接退出。
+对每个 stable_state 维护状态内 invalidity memory：
+
+invalidity_memory_t =
+    decay * invalidity_memory_{t-1}
+    + (1 - decay) * current_invalidity
+
+不同状态使用不同 decay、soft threshold、hard threshold。
+
+例如：
+
+HPEM:
+    hpem_no_response、hpem_decay、hpem_adverse 进入 invalidity。
+    giveback / adverse 的 hard threshold 更强。
+
+RHA:
+    INVALID_RHA_FOLLOWS_PLIE 进入 hard invalidity。
+    RHA_STALL 只降低 trading quality，除非持续太久且没有 reversal evidence。
+
+RC:
+    price drift、range break、trend_strength 上升进入 invalidity。
+    但单根 break 不立即退出，需要连续确认。
+
+VT:
+    low move 降低质量；
+    direction mixed 不一定退出；
+    持续 low vol + low move 可退出到 RC / ST。
+
+ST:
+    flat 或 too extreme 进入 invalidity；
+    exit-pressure fallback 的 ST 需要更严格确认。
+
+## 方案 B：双层输出保持
+
+继续保留：
+stable_state = 市场结构；
+directional_state / trading_trigger_quality / price expectation = 交易质量。
+
+不要把所有低质量状态都强行改 stable_state。
+但对于 hard invalidity，应逐步进入 exit_pressure。
+
+## 方案 C：state-specific exit confirmation
+
+每个状态设置不同的 exit confirmation：
+
+HPEM:
+    no_response_confirm_bars
+    decay_confirm_bars
+    adverse_confirm_bars
+
+RHA:
+    invalid_follow_plie_confirm_bars
+    weak_no_reversal_confirm_bars
+    stall_max_hold_bars
+
+RC:
+    price_drift_confirm_bars
+    range_break_confirm_bars
+    trend_exclusion_confirm_bars
+
+VT:
+    low_move_confirm_bars
+    mixed_direction_max_hold_bars
+    volatility_collapse_confirm_bars
+
+ST:
+    flat_confirm_bars
+    too_extreme_confirm_bars
+    weak_trend_confirm_bars
+
+## 方案 D：maximum invalid hold
+
+如果某个状态连续处于 invalid / weak / price expectation failure，但 production stability 仍保留旧状态，应该设置 max_invalid_hold。
+
+例如：
+HPEM 连续 hpem_decay 超过 N bars，应退出；
+RHA 连续 INVALID_RHA_FOLLOWS_PLIE 超过 N bars，应退出；
+RC 连续 RC_PRICE_TOO_LARGE_OR_TRENDING 超过 N bars，应退出；
+ST 连续 ST_FLAT 超过 N bars，应退出。
+
+## 方案 E：entry confirmation 与 exit sensitivity 分离
+
+状态进入可以保持严格；
+状态退出可以对 hard invalidity 更敏感。
+
+不要为了让退出更快而让进入也更敏感。
+应分别调：
+entry_tau
+exit_tau
+min_duration
+exit_pressure
+invalidity_memory
+target transition gate
+
+## 方案 F：late-stage state decay
+
+状态持续时间越久，且价格行为开始不符合定义时，退出应该更容易。
+
+但持续时间本身不应自动触发退出。
+应使用：
+long_duration + invalidity evidence
+而不是：
+long_duration alone。
+
+---
+
+# 14. 需要输出的分析内容
+
+请在新对话中完成以下任务：
+
+1. 阅读上传的完整代码、文档和输出。
+2. 核查当前版本配置，包括：
+   model_config.yaml
+   feature_contract.yaml
+   price expectation 配置
+   stability 配置
+   responsiveness 配置
+   directional quality 配置
+3. 读取最新 state_timeseries.csv / full_debug / segment_diagnostics。
+4. 对所有状态段做状态段级诊断，而不是只看逐点。
+5. 重点诊断：
+   HPEM no-response / decay / adverse 后多久退出；
+   RHA invalid follows PLIE 后多久退出；
+   RC price too large 后多久退出；
+   VT low move / mixed 后是否仍停留过久；
+   ST flat / weak trend 后是否仍停留过久。
+6. 输出：
+   当前 exit sensitivity 指标；
+   当前 state persistence 指标；
+   状态段质量问题统计；
+   候选问题时间段；
+   原因定位；
+   不破坏当前状态分布的优化方案。
+7. 提出 1–3 个可执行方案。
+8. 若需要改代码，先说明改动点、配置项、验证方案，再实施。
+9. 更新文档和 dashboard。
+10. 生成新的输出并对比旧版本。
+11. 不要只看状态分布；必须看 segment quality、transition lag、invalid hold duration、switch rate、1-step segments、状态抖动。
+
+---
+
+# 15. 验证指标建议
+
+下一轮优化必须用以下指标验证：
+
+## Exit sensitivity
+
+HPEM:
+    hpem_decay_flag 后平均几 bar 退出；
+    hpem_adverse_flag 后平均几 bar 退出；
+    hpem_no_response_flag 后平均几 bar 退出。
+
+RHA:
+    INVALID_RHA_FOLLOWS_PLIE 后平均几 bar 退出；
+    RHA_WEAK / RHA_STALL 连续过久的比例。
+
+RC:
+    RC_PRICE_TOO_LARGE_OR_TRENDING 后平均几 bar 退出；
+    RC price drift 段数是否下降。
+
+VT:
+    VT_LOW_MOVE 连续过久比例；
+    VT_MIXED 状态是否被正确降为 no-trade 而非频繁切换。
+
+ST:
+    ST_FLAT / ST_WEAK_TREND 后平均几 bar 退出；
+    exit-pressure fallback ST 的弱趋势比例是否下降。
+
+## State persistence
+
+总 switch rate；
+每个状态平均持续时间；
+每个状态中位持续时间；
+1-step segment 比例；
+2–3 bar 超短段比例；
+A -> B -> A 来回抖动次数；
+HPEM <-> RHA 高频来回；
+RC <-> VT 高频来回；
+ST 作为 fallback 的频率。
+
+## Segment quality
+
+HPEM low-quality segment count；
+RHA invalid / weak segment count；
+RC large-move segment count；
+VT low-move segment count；
+ST flat segment count；
+segment_quality_issues 的版本对比。
+
+## Strategy relevance
+
+不要只看状态是否更快切换，还要看：
+trading_trigger_quality 是否更可靠；
+price_expectation_exit_flag 是否更有解释力；
+directional_state 是否更稳定；
+AMB 是否没有过度吸收；
+RC 是否没有重新被压缩过低；
+HPEM / RHA 是否没有重新变得噪声化。
+
+---
+
+# 16. 最终目标
+
+当前六状态输出整体已经基本满意。
+
+下一轮优化的目标不是重新做模型，而是解决最后的 trade-off：
+
+1. 状态退出要更聪明：
+   一旦状态价格行为不再符合定义，应更快退出或降权。
+
+2. 状态持续要更稳健：
+   不能因为单根 bar 或短期噪声导致高频切换。
+
+更具体地说：
+
+HPEM:
+    保留高质量顺 PLIE 穿透段；
+    快速退出 no-response / decay / adverse 段。
+
+RHA:
+    保留 high absorption / reversal 语义；
+    但区分 reversal vs stall；
+    INVALID_RHA_FOLLOWS_PLIE 应尽快触发退出或降权。
+
+RC:
+    保留低压力低波整理；
+    出现 drift / range break / trend 应退出或降权。
+
+VT:
+    保留主动趋势 / 高波环境；
+    方向可以变，但 low move / low vol 不应作为高质量 VT。
+
+ST:
+    保留温和趋势；
+    flat 或 too extreme 都不应长期停留。
+
+请基于真实代码和真实输出，提出并实施最小必要改动，保持当前系统整体结构不变。

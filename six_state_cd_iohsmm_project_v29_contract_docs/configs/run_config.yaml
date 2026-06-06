@@ -1,0 +1,13 @@
+run:
+  # Relative paths are resolved from the project root by default.
+  # Supported values: project_root, config_dir, cwd.
+  path_base: project_root
+
+  # Input can be either a directory containing CSV files or a .zip bundle.
+  input_path: /Users/zhoutianlian/Documents/MyGitHub/WTRCodeHub/BTC-LPTM-FeatureEngineering/model_input
+
+  # Pipeline outputs are written here.
+  output_dir: outputs/run_latest
+
+  # Model, feature, and state-definition configs.
+  config_dir: configs

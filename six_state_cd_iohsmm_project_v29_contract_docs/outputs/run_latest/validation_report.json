@@ -1,0 +1,510 @@
+{
+  "rows": 40508,
+  "time_start": "2021-08-28 11:50:00",
+  "time_end": "2026-05-12 02:50:00",
+  "no_leakage": {
+    "passed": true,
+    "forbidden_columns_found": [],
+    "available_time_violations": {
+      "absorption_memory_latest_abs_available_time_30m": 0,
+      "absorption_memory_last_directional_core_available_time_30m": 0,
+      "path_absorption_multiscale_available_time": 0,
+      "path_absorption_available_time": 0
+    },
+    "missing_required_columns": {},
+    "duplicate_time_count": 0,
+    "notes": [
+      "Raw PLIE file contains forbidden columns and they were excluded: ['plie_absorption_20m', 'plie_absorption_30m', 'plie_absorption_60m', 'plie_aligned_ret_20m_bps', 'plie_aligned_ret_30m_bps', 'plie_aligned_ret_60m_bps', 'plie_residual_20m_bps', 'plie_residual_30m_bps', 'plie_residual_60m_bps', 'ret_20m_bps', 'ret_30m_bps', 'ret_60m_bps']",
+      "Using path_absorption_multiscale.csv as preferred 6h/12h/24h/48h path layer.",
+      "path_absorption available window_hours=[24]; canonical frame uses 24h compatibility fields.",
+      "Using price_context_features.csv as preferred past-only price context layer."
+    ]
+  },
+  "state_distribution": {
+    "ST": 0.11587834501826799,
+    "VT": 0.18305026167670582,
+    "RC": 0.20193542016391824,
+    "RHA": 0.251604621309371,
+    "HPEM": 0.24019946677199566,
+    "AMB": 0.0073318850597412855
+  },
+  "switch_rate_per_row": 0.07699713636812482,
+  "duration_summary": {
+    "AMB": {
+      "segments": 36,
+      "mean_steps": 8.25,
+      "median_steps": 6.5,
+      "short_1_step_ratio": 0.027777777777777776
+    },
+    "HPEM": {
+      "segments": 691,
+      "mean_steps": 14.081041968162085,
+      "median_steps": 10.0,
+      "short_1_step_ratio": 0.03183791606367583
+    },
+    "RC": {
+      "segments": 494,
+      "mean_steps": 16.558704453441294,
+      "median_steps": 12.0,
+      "short_1_step_ratio": 0.0
+    },
+    "RHA": {
+      "segments": 746,
+      "mean_steps": 13.662198391420912,
+      "median_steps": 11.0,
+      "short_1_step_ratio": 0.0
+    },
+    "ST": {
+      "segments": 590,
+      "mean_steps": 7.95593220338983,
+      "median_steps": 6.0,
+      "short_1_step_ratio": 0.0
+    },
+    "VT": {
+      "segments": 562,
+      "mean_steps": 13.193950177935942,
+      "median_steps": 10.0,
+      "short_1_step_ratio": 0.0
+    }
+  },
+  "scenario_review": {
+    "rha_pressure_rejection": {
+      "available": true,
+      "note": "向下清算压力持续但价格不跌反升，应偏 RHA / pressure rejection。",
+      "start": "2026-04-03 00:00:00",
+      "end": "2026-04-04 23:59:59",
+      "rows": 48,
+      "primary_state": "RHA",
+      "state_distribution": {
+        "RHA": 0.7708333333333334,
+        "ST": 0.125,
+        "HPEM": 0.10416666666666667
+      },
+      "expected_primary": [
+        "RHA"
+      ],
+      "pass_expectation": true,
+      "mean_beliefs": {
+        "ST": 0.21595900708929427,
+        "VT": 0.01790181899856096,
+        "RC": 0.024415596851983856,
+        "RHA": 0.5705330484325541,
+        "HPEM": 0.13425762939333322,
+        "AMB": 0.03693289923427351
+      },
+      "path_context_top_6h": {
+        "path_directional_weak": 45,
+        "path_directional_core": 3
+      },
+      "path_label_top_6h": {
+        "path_pressure_rejection": 19,
+        "path_reversal_takeover": 8,
+        "path_baseline_transmission": 6,
+        "path_cascade_transmission": 6,
+        "path_partial_absorption": 6
+      },
+      "path_context_top_24h": {
+        "path_directional_weak": 48
+      },
+      "path_label_top_24h": {
+        "path_pressure_rejection": 28,
+        "path_full_absorption_stall": 7,
+        "path_partial_absorption": 5,
+        "path_reversal_takeover": 5,
+        "path_baseline_transmission": 2
+      }
+    },
+    "vt_active_dominance": {
+      "available": true,
+      "note": "清算压力中性但价格变化巨大，应偏 VT / active dominance，不应偏 RHA。",
+      "start": "2026-01-29 00:00:00",
+      "end": "2026-01-31 23:59:59",
+      "rows": 72,
+      "primary_state": "VT",
+      "state_distribution": {
+        "VT": 0.9305555555555556,
+        "RC": 0.06944444444444445
+      },
+      "expected_primary": [
+        "VT"
+      ],
+      "pass_expectation": true,
+      "mean_beliefs": {
+        "ST": 0.019888688754559902,
+        "VT": 0.7800910526079919,
+        "RC": 0.16333708237432443,
+        "RHA": 0.002645723698514293,
+        "HPEM": 0.01136067507566776,
+        "AMB": 0.022676777488941664
+      },
+      "path_context_top_6h": {
+        "path_neutral_pressure": 66,
+        "path_directional_weak": 6
+      },
+      "path_label_top_6h": {
+        "path_active_dominance_down": 27,
+        "path_quiet_no_pressure": 20,
+        "path_normal_active_dominance_down": 11,
+        "path_normal_active_dominance_up": 8,
+        "path_reversal_takeover": 2
+      },
+      "path_context_top_24h": {
+        "path_neutral_pressure": 72
+      },
+      "path_label_top_24h": {
+        "path_active_dominance_down": 37,
+        "path_quiet_no_pressure": 15,
+        "path_normal_active_dominance_down": 14,
+        "path_normal_active_dominance_up": 6
+      }
+    }
+  },
+  "responsiveness_diagnostics": {
+    "shock_event_count": 3022,
+    "shock_event_ratio": 0.07460254764490964,
+    "shock_switch_within_1_step": 0.2600926538716082,
+    "shock_switch_within_3_steps": 0.37160820648577103,
+    "shock_switch_within_6_steps": 0.47915287888815355,
+    "fast_transition_count": 148,
+    "exit_pressure_trigger_count": 1450,
+    "delayed_hold_count": 3993,
+    "candidate_stable_mismatch_ratio": 0.1885059741285672,
+    "mean_exit_pressure": 0.2800519550192324,
+    "p95_exit_pressure": 0.6697979117166796
+  },
+  "segment_quality_summary": {
+    "segments": 3119,
+    "issue_counts": {
+      "q_short_low_move": 343,
+      "q_rc_trending": 14,
+      "q_hpem_weak_price_impact": 0,
+      "q_hpem_directional_decay": 585,
+      "q_rha_invalid_direction": 51,
+      "q_vt_weak_movement": 31,
+      "q_vt_weak_trend": 124,
+      "q_vt_mixed_direction": 326,
+      "q_st_weak_trend": 347,
+      "q_low_trading_quality": 2826,
+      "q_low_directional_quality": 2826,
+      "q_low_price_expectation_quality": 2826,
+      "q_price_expectation_exit": 1850,
+      "q_rc_price_too_large": 359,
+      "q_vt_low_move_price": 508,
+      "q_st_price_expectation": 570,
+      "q_hpem_price_expectation_exit": 0,
+      "q_rha_price_expectation_exit": 0,
+      "q_price_expectation_low_score": 1464,
+      "q_hpem_px_failure": 314,
+      "q_rha_px_failure": 711,
+      "q_rc_price_not_small": 102,
+      "q_vt_low_move_px": 477,
+      "q_vt_mixed_or_weak": 541,
+      "q_st_price_expectation_fail": 570,
+      "q_st_flat_or_extreme": 202
+    },
+    "by_state": {
+      "AMB": {
+        "segments": 36,
+        "median_abs_return_bps": 36.14066734863056,
+        "median_range_bps": 83.01583824281649,
+        "mean_trading_trigger_quality": 0.26554701422951954,
+        "mean_directional_trading_quality": 0.26554701422951954,
+        "mean_price_expectation_score": 1.0,
+        "price_expectation_exit_ratio": 0.0,
+        "directional_exit_ratio": 0.0,
+        "weak_segment_ratio": 0.2222222222222222,
+        "issue_counts": {
+          "q_short_low_move": 11,
+          "q_rc_trending": 0,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 0,
+          "q_rha_invalid_direction": 0,
+          "q_vt_weak_movement": 0,
+          "q_vt_weak_trend": 0,
+          "q_vt_mixed_direction": 0,
+          "q_st_weak_trend": 0,
+          "q_low_trading_quality": 36,
+          "q_low_directional_quality": 36,
+          "q_low_price_expectation_quality": 36,
+          "q_price_expectation_exit": 0,
+          "q_rc_price_too_large": 0,
+          "q_vt_low_move_price": 0,
+          "q_st_price_expectation": 0,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 0,
+          "q_hpem_px_failure": 0,
+          "q_rha_px_failure": 0,
+          "q_rc_price_not_small": 0,
+          "q_vt_low_move_px": 0,
+          "q_vt_mixed_or_weak": 0,
+          "q_st_price_expectation_fail": 0,
+          "q_st_flat_or_extreme": 0
+        }
+      },
+      "HPEM": {
+        "segments": 691,
+        "median_abs_return_bps": 62.17684371830487,
+        "median_range_bps": 124.4633386809696,
+        "mean_trading_trigger_quality": 0.4295942715513284,
+        "mean_directional_trading_quality": 0.4295942715513284,
+        "mean_price_expectation_score": 0.6827247253091742,
+        "price_expectation_exit_ratio": 0.14212938763036254,
+        "directional_exit_ratio": 0.1412245835300617,
+        "weak_segment_ratio": 0.01447178002894356,
+        "issue_counts": {
+          "q_short_low_move": 66,
+          "q_rc_trending": 0,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 585,
+          "q_rha_invalid_direction": 0,
+          "q_vt_weak_movement": 0,
+          "q_vt_weak_trend": 0,
+          "q_vt_mixed_direction": 0,
+          "q_st_weak_trend": 0,
+          "q_low_trading_quality": 401,
+          "q_low_directional_quality": 401,
+          "q_low_price_expectation_quality": 401,
+          "q_price_expectation_exit": 289,
+          "q_rc_price_too_large": 0,
+          "q_vt_low_move_price": 0,
+          "q_st_price_expectation": 0,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 69,
+          "q_hpem_px_failure": 314,
+          "q_rha_px_failure": 0,
+          "q_rc_price_not_small": 0,
+          "q_vt_low_move_px": 0,
+          "q_vt_mixed_or_weak": 0,
+          "q_st_price_expectation_fail": 0,
+          "q_st_flat_or_extreme": 0
+        }
+      },
+      "RC": {
+        "segments": 494,
+        "median_abs_return_bps": 84.64997537423336,
+        "median_range_bps": 136.49160646406966,
+        "mean_trading_trigger_quality": 0.234582434583862,
+        "mean_directional_trading_quality": 0.234582434583862,
+        "mean_price_expectation_score": 0.6146547640666831,
+        "price_expectation_exit_ratio": 0.3399672960267342,
+        "directional_exit_ratio": 0.0,
+        "weak_segment_ratio": 0.058704453441295545,
+        "issue_counts": {
+          "q_short_low_move": 15,
+          "q_rc_trending": 14,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 0,
+          "q_rha_invalid_direction": 0,
+          "q_vt_weak_movement": 0,
+          "q_vt_weak_trend": 0,
+          "q_vt_mixed_direction": 0,
+          "q_st_weak_trend": 0,
+          "q_low_trading_quality": 494,
+          "q_low_directional_quality": 494,
+          "q_low_price_expectation_quality": 494,
+          "q_price_expectation_exit": 431,
+          "q_rc_price_too_large": 359,
+          "q_vt_low_move_price": 0,
+          "q_st_price_expectation": 0,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 47,
+          "q_hpem_px_failure": 0,
+          "q_rha_px_failure": 0,
+          "q_rc_price_not_small": 102,
+          "q_vt_low_move_px": 0,
+          "q_vt_mixed_or_weak": 0,
+          "q_st_price_expectation_fail": 0,
+          "q_st_flat_or_extreme": 0
+        }
+      },
+      "RHA": {
+        "segments": 746,
+        "median_abs_return_bps": 59.53927440147088,
+        "median_range_bps": 118.60934926886503,
+        "mean_trading_trigger_quality": 0.11961225081402774,
+        "mean_directional_trading_quality": 0.11961225081402774,
+        "mean_price_expectation_score": 0.3648281418849538,
+        "price_expectation_exit_ratio": 0.014182763289430652,
+        "directional_exit_ratio": 0.014182763289430652,
+        "weak_segment_ratio": 0.1836461126005362,
+        "issue_counts": {
+          "q_short_low_move": 55,
+          "q_rc_trending": 0,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 0,
+          "q_rha_invalid_direction": 51,
+          "q_vt_weak_movement": 0,
+          "q_vt_weak_trend": 0,
+          "q_vt_mixed_direction": 0,
+          "q_st_weak_trend": 0,
+          "q_low_trading_quality": 745,
+          "q_low_directional_quality": 745,
+          "q_low_price_expectation_quality": 745,
+          "q_price_expectation_exit": 51,
+          "q_rc_price_too_large": 0,
+          "q_vt_low_move_price": 0,
+          "q_st_price_expectation": 0,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 652,
+          "q_hpem_px_failure": 0,
+          "q_rha_px_failure": 711,
+          "q_rc_price_not_small": 0,
+          "q_vt_low_move_px": 0,
+          "q_vt_mixed_or_weak": 0,
+          "q_st_price_expectation_fail": 0,
+          "q_st_flat_or_extreme": 0
+        }
+      },
+      "ST": {
+        "segments": 590,
+        "median_abs_return_bps": 46.47598181927691,
+        "median_range_bps": 78.7389728225692,
+        "mean_trading_trigger_quality": 0.08565543742323507,
+        "mean_directional_trading_quality": 0.08565543742323507,
+        "mean_price_expectation_score": 0.39615741734215126,
+        "price_expectation_exit_ratio": 0.7215519833579135,
+        "directional_exit_ratio": 0.0,
+        "weak_segment_ratio": 0.07457627118644068,
+        "issue_counts": {
+          "q_short_low_move": 123,
+          "q_rc_trending": 0,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 0,
+          "q_rha_invalid_direction": 0,
+          "q_vt_weak_movement": 0,
+          "q_vt_weak_trend": 0,
+          "q_vt_mixed_direction": 0,
+          "q_st_weak_trend": 347,
+          "q_low_trading_quality": 590,
+          "q_low_directional_quality": 590,
+          "q_low_price_expectation_quality": 590,
+          "q_price_expectation_exit": 570,
+          "q_rc_price_too_large": 0,
+          "q_vt_low_move_price": 0,
+          "q_st_price_expectation": 570,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 393,
+          "q_hpem_px_failure": 0,
+          "q_rha_px_failure": 0,
+          "q_rc_price_not_small": 0,
+          "q_vt_low_move_px": 0,
+          "q_vt_mixed_or_weak": 0,
+          "q_st_price_expectation_fail": 570,
+          "q_st_flat_or_extreme": 202
+        }
+      },
+      "VT": {
+        "segments": 562,
+        "median_abs_return_bps": 67.33379499835844,
+        "median_range_bps": 133.5380970656899,
+        "mean_trading_trigger_quality": 0.11267975777850574,
+        "mean_directional_trading_quality": 0.11267975777850574,
+        "mean_price_expectation_score": 0.4394237354636811,
+        "price_expectation_exit_ratio": 0.546280259239389,
+        "directional_exit_ratio": 0.0,
+        "weak_segment_ratio": 0.30604982206405695,
+        "issue_counts": {
+          "q_short_low_move": 73,
+          "q_rc_trending": 0,
+          "q_hpem_weak_price_impact": 0,
+          "q_hpem_directional_decay": 0,
+          "q_rha_invalid_direction": 0,
+          "q_vt_weak_movement": 31,
+          "q_vt_weak_trend": 124,
+          "q_vt_mixed_direction": 326,
+          "q_st_weak_trend": 0,
+          "q_low_trading_quality": 560,
+          "q_low_directional_quality": 560,
+          "q_low_price_expectation_quality": 560,
+          "q_price_expectation_exit": 509,
+          "q_rc_price_too_large": 0,
+          "q_vt_low_move_price": 508,
+          "q_st_price_expectation": 0,
+          "q_hpem_price_expectation_exit": 0,
+          "q_rha_price_expectation_exit": 0,
+          "q_price_expectation_low_score": 303,
+          "q_hpem_px_failure": 0,
+          "q_rha_px_failure": 0,
+          "q_rc_price_not_small": 0,
+          "q_vt_low_move_px": 477,
+          "q_vt_mixed_or_weak": 541,
+          "q_st_price_expectation_fail": 0,
+          "q_st_flat_or_extreme": 0
+        }
+      }
+    }
+  },
+  "semantic_profile_brief": {
+    "AMB": {
+      "count": 297,
+      "prop": 0.0073318850597412855,
+      "cascade_mean": 0.159157207091309,
+      "rejection_mean": 0.15948702615965374,
+      "active_mean": 0.185209072874043,
+      "quiet_mean": 0.08202073169316729,
+      "low_vol_mean": 0.7423189962462153,
+      "range_compression_mean": 0.5535643149110102,
+      "conflict_mean": 0.35509044530735895
+    },
+    "HPEM": {
+      "count": 9730,
+      "prop": 0.24019946677199566,
+      "cascade_mean": 0.4366226058603135,
+      "rejection_mean": 0.10640721866556177,
+      "active_mean": 0.19157455508232438,
+      "quiet_mean": 0.009285545953367487,
+      "low_vol_mean": 0.5651674203264276,
+      "range_compression_mean": 0.37510095571864416,
+      "conflict_mean": 0.17282253071273893
+    },
+    "RC": {
+      "count": 8180,
+      "prop": 0.20193542016391824,
+      "cascade_mean": 0.10072710046797083,
+      "rejection_mean": 0.08952583893965625,
+      "active_mean": 0.18529066246474393,
+      "quiet_mean": 0.5686549109621913,
+      "low_vol_mean": 0.8058596128924531,
+      "range_compression_mean": 0.7064436537593819,
+      "conflict_mean": 0.14633722422391438
+    },
+    "RHA": {
+      "count": 10192,
+      "prop": 0.251604621309371,
+      "cascade_mean": 0.1460036281376709,
+      "rejection_mean": 0.32632118743200356,
+      "active_mean": 0.15673818865390884,
+      "quiet_mean": 0.030595174060801186,
+      "low_vol_mean": 0.6545699923280965,
+      "range_compression_mean": 0.4881199736760548,
+      "conflict_mean": 0.18714147064439612
+    },
+    "ST": {
+      "count": 4694,
+      "prop": 0.11587834501826799,
+      "cascade_mean": 0.205351922805364,
+      "rejection_mean": 0.15528708196735663,
+      "active_mean": 0.11813247946592867,
+      "quiet_mean": 0.07261029099024013,
+      "low_vol_mean": 0.7363869314730561,
+      "range_compression_mean": 0.6192314002214022,
+      "conflict_mean": 0.16027077249156124
+    },
+    "VT": {
+      "count": 7415,
+      "prop": 0.18305026167670582,
+      "cascade_mean": 0.18143474457162603,
+      "rejection_mean": 0.13300849676455925,
+      "active_mean": 0.34971792845785954,
+      "quiet_mean": 0.1751037247451085,
+      "low_vol_mean": 0.5611480577793951,
+      "range_compression_mean": 0.3781297180348041,
+      "conflict_mean": 0.20791986248943112
+    }
+  }
+}
